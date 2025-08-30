@@ -9,28 +9,13 @@ import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
-import Grid from '@mui/material/Grid'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import Divider from '@mui/material/Divider'
 import TextField from '@mui/material/TextField'
-import Fab from '@mui/material/Fab'
-import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
-import DialogActions from '@mui/material/DialogActions'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
-import AutoAwesome from '@mui/icons-material/AutoAwesome'
-import Psychology from '@mui/icons-material/Psychology'
-import Speed from '@mui/icons-material/Speed'
-import Security from '@mui/icons-material/Security'
-import PlayArrow from '@mui/icons-material/PlayArrow'
-import GitHub from '@mui/icons-material/GitHub'
-import Description from '@mui/icons-material/Description'
 import Chat from '@mui/icons-material/Chat'
 import Send from '@mui/icons-material/Send'
-import Close from '@mui/icons-material/Close'
 import './App.css'
 
 // Create a custom theme with dungeon-inspired colors
@@ -165,45 +150,37 @@ function ChatComponent({ open, onClose }) {
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          minHeight: '70vh',
-          maxHeight: '80vh',
-        }
-      }}
-    >
-      <DialogTitle sx={{
+    <Paper sx={{
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      borderRadius: 3,
+      overflow: 'hidden'
+    }}>
+      {/* Header */}
+      <Box sx={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white'
+        color: 'white',
+        p: 2
       }}>
         <Typography variant="h6">
           <Chat sx={{ mr: 1, verticalAlign: 'middle' }} />
           Dungeon Generator Chat
         </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button
-            onClick={clearHistory}
-            sx={{ color: 'white', fontSize: '0.8rem' }}
-            size="small"
-          >
-            Clear History
-          </Button>
-          <Button onClick={onClose} sx={{ color: 'white' }}>
-            <Close />
-          </Button>
-        </Stack>
-      </DialogTitle>
+        <Button
+          onClick={clearHistory}
+          sx={{ color: 'white', fontSize: '0.8rem' }}
+          size="small"
+        >
+          Clear History
+        </Button>
+      </Box>
 
-      <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Content */}
+      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', flexGrow: 1 }}>
         <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
           Describe the type of dungeon you want to generate. Be specific about themes, challenges, or special features!
         </Typography>
@@ -213,11 +190,11 @@ function ChatComponent({ open, onClose }) {
           flexGrow: 1,
           mb: 3,
           overflowY: 'auto',
-          maxHeight: '400px',
           border: '1px solid #e0e0e0',
           borderRadius: 2,
           p: 2,
-          backgroundColor: '#fafafa'
+          backgroundColor: '#fafafa',
+          minHeight: '300px'
         }}>
           {chatHistory.length === 0 ? (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
@@ -300,304 +277,31 @@ function ChatComponent({ open, onClose }) {
             {loading ? 'Generating...' : 'Generate Dungeon'}
           </Button>
         </form>
-      </DialogContent>
-    </Dialog>
+      </Box>
+    </Paper>
   );
 }
 
 function App() {
-  const [count, setCount] = useState(0)
-  const [chatOpen, setChatOpen] = useState(false)
-
-  const features = [
-    {
-      icon: <AutoAwesome sx={{ fontSize: 40, color: 'primary.main' }} />,
-      title: 'AI-Powered Generation',
-      description: 'Advanced algorithms create unique and challenging dungeon layouts automatically.'
-    },
-    {
-      icon: <Psychology sx={{ fontSize: 40, color: 'primary.main' }} />,
-      title: 'Smart Design',
-      description: 'Intelligent room placement and pathfinding for realistic dungeon structures.'
-    },
-    {
-      icon: <Speed sx={{ fontSize: 40, color: 'primary.main' }} />,
-      title: 'Lightning Fast',
-      description: 'Generate complex dungeons in seconds with our optimized algorithms.'
-    },
-    {
-      icon: <Security sx={{ fontSize: 40, color: 'primary.main' }} />,
-      title: 'Secure & Reliable',
-      description: 'Built with modern security practices and robust error handling.'
-    }
-  ]
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ flexGrow: 1 }}>
-        {/* Navigation */}
+      <Box sx={{ flexGrow: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Simple Header */}
         <AppBar position="static" elevation={0} sx={{ backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)' }}>
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'primary.main', fontWeight: 700 }}>
               DungeonGen
             </Typography>
-            <Stack direction="row" spacing={2}>
-              <Button color="inherit" sx={{ color: 'text.primary' }}>
-                Features
-              </Button>
-              <Button color="inherit" sx={{ color: 'text.primary' }}>
-                Documentation
-              </Button>
-              <Button variant="contained" color="primary">
-                Get Started
-              </Button>
-            </Stack>
           </Toolbar>
         </AppBar>
 
-        {/* Hero Section */}
-        <Box
-          sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            py: 12,
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-        >
-          <Container maxWidth="lg">
-            <Grid container spacing={6} alignItems="center">
-              <Grid item xs={12} md={6}>
-                <Typography variant="h1" gutterBottom sx={{ color: 'white' }}>
-                  Generate Amazing Dungeons
-                </Typography>
-                <Typography variant="h5" paragraph sx={{ color: 'rgba(255,255,255,0.9)', mb: 4 }}>
-                  Create unique, challenging, and immersive dungeon layouts with our AI-powered generation system.
-                  Perfect for game developers, DMs, and creative storytellers.
-                </Typography>
-                <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2 }}>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    startIcon={<PlayArrow />}
-                    onClick={() => setChatOpen(true)}
-                    sx={{
-                      backgroundColor: 'white',
-                      color: 'primary.main',
-                      '&:hover': {
-                        backgroundColor: 'rgba(255,255,255,0.9)',
-                      }
-                    }}
-                  >
-                    Try Demo
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    startIcon={<GitHub />}
-                    sx={{
-                      borderColor: 'white',
-                      color: 'white',
-                      '&:hover': {
-                        borderColor: 'rgba(255,255,255,0.8)',
-                        backgroundColor: 'rgba(255,255,255,0.1)',
-                      }
-                    }}
-                  >
-                    View Source
-                  </Button>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box
-                  sx={{
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    borderRadius: 4,
-                    p: 4,
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255,255,255,0.2)'
-                  }}
-                >
-                  <Typography variant="h4" gutterBottom align="center">
-                    Live Preview
-                  </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                    <Card sx={{ minWidth: 275, maxWidth: 400, backgroundColor: 'rgba(255,255,255,0.9)' }}>
-                      <CardContent>
-                        <Typography variant="h6" component="h2" gutterBottom color="primary.main">
-                          Interactive Demo
-                        </Typography>
-                        <Typography variant="body1" color="text.secondary" paragraph>
-                          Experience the power of DungeonGen with our interactive demo.
-                          Generate dungeons in real-time and see the magic happen.
-                        </Typography>
-
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                          <Button
-                            variant="contained"
-                            onClick={() => setCount((count) => count + 1)}
-                            sx={{ mr: 2 }}
-                          >
-                            Generate ({count})
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            onClick={() => setCount(0)}
-                          >
-                            Reset
-                          </Button>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
+        {/* Main Chat Interface */}
+        <Box sx={{ flexGrow: 1, p: 3 }}>
+          <Container maxWidth="md" sx={{ height: '100%' }}>
+            <ChatComponent open={true} onClose={() => {}} />
           </Container>
         </Box>
-
-        {/* Features Section */}
-        <Container maxWidth="lg" sx={{ py: 8 }}>
-          <Typography variant="h2" component="h2" gutterBottom align="center" sx={{ mb: 6 }}>
-            Why Choose DungeonGen?
-          </Typography>
-
-          <Grid container spacing={4}>
-            {features.map((feature, index) => (
-              <Grid item xs={12} sm={6} md={3} key={index}>
-                <Card sx={{ height: '100%', textAlign: 'center', p: 3 }}>
-                  <Box sx={{ mb: 2 }}>
-                    {feature.icon}
-                  </Box>
-                  <Typography variant="h5" component="h3" gutterBottom>
-                    {feature.title}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary">
-                    {feature.description}
-                  </Typography>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-
-        {/* CTA Section */}
-        <Box sx={{ backgroundColor: 'background.paper', py: 8 }}>
-          <Container maxWidth="md">
-            <Paper
-              elevation={0}
-              sx={{
-                p: 6,
-                textAlign: 'center',
-                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                color: 'white',
-                borderRadius: 4
-              }}
-            >
-              <Typography variant="h3" gutterBottom>
-                Ready to Create Amazing Dungeons?
-              </Typography>
-              <Typography variant="h6" paragraph sx={{ color: 'rgba(255,255,255,0.9)', mb: 4 }}>
-                Join thousands of developers and creators who are already using DungeonGen
-                to bring their worlds to life.
-              </Typography>
-              <Stack direction="row" spacing={2} justifyContent="center" sx={{ flexWrap: 'wrap', gap: 2 }}>
-                <Button
-                  variant="contained"
-                  size="large"
-                  startIcon={<PlayArrow />}
-                  onClick={() => setChatOpen(true)}
-                  sx={{
-                    backgroundColor: 'white',
-                    color: 'primary.main',
-                    '&:hover': {
-                      backgroundColor: 'rgba(255,255,255,0.9)',
-                    }
-                  }}
-                >
-                  Start Creating
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  startIcon={<Description />}
-                  sx={{
-                    borderColor: 'white',
-                    color: 'white',
-                    '&:hover': {
-                      borderColor: 'rgba(255,255,255,0.8)',
-                      backgroundColor: 'rgba(255,255,255,0.1)',
-                    }
-                  }}
-                >
-                  Read Docs
-                </Button>
-              </Stack>
-            </Paper>
-          </Container>
-        </Box>
-
-        {/* Footer */}
-        <Box sx={{ backgroundColor: 'primary.dark', color: 'white', py: 4 }}>
-          <Container maxWidth="lg">
-            <Grid container spacing={4}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>
-                  DungeonGen
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                  The ultimate tool for generating unique and challenging dungeon layouts.
-                  Built with modern technologies and designed for creators.
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>
-                  Quick Links
-                </Typography>
-                <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                  <Button size="small" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                    Features
-                  </Button>
-                  <Button size="small" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                    Documentation
-                  </Button>
-                  <Button size="small" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                    GitHub
-                  </Button>
-                  <Button size="small" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                    Contact
-                  </Button>
-                </Stack>
-              </Grid>
-            </Grid>
-            <Divider sx={{ my: 3, borderColor: 'rgba(255,255,255,0.2)' }} />
-            <Typography variant="body2" align="center" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-              © 2024 DungeonGen. Built with React, Vite, and Material-UI.
-            </Typography>
-          </Container>
-        </Box>
-
-        {/* Floating Chat Button */}
-        <Fab
-          color="primary"
-          aria-label="chat"
-          onClick={() => setChatOpen(true)}
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            backgroundColor: 'secondary.main',
-            '&:hover': {
-              backgroundColor: 'secondary.dark',
-            }
-          }}
-        >
-          <Chat />
-        </Fab>
-
-        {/* Chat Dialog */}
-        <ChatComponent open={chatOpen} onClose={() => setChatOpen(false)} />
       </Box>
     </ThemeProvider>
   )
