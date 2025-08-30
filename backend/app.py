@@ -6,11 +6,14 @@ from flask_cors import CORS
 from flask_opentracing import FlaskTracing
 from jaeger_client import Config
 
+# Register API blueprints
+from api.generate import generate_bp
+
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins="*", supports_credentials=False)
 
 
 # Initialize Jaeger tracer
@@ -38,6 +41,9 @@ tracer = init_tracer()
 tracing = FlaskTracing(tracer, True, app)
 
 
+app.register_blueprint(generate_bp)
+
+
 @app.route("/")
 def home():
     with tracer.start_span("home_endpoint") as span:
@@ -48,6 +54,11 @@ def home():
             "message": "DungeonGen Backend API",
             "status": "running",
             "version": "1.0.0",
+            "endpoints": {
+                "generate": "/api/generate",
+                "generate_info": "/api/generate/info",
+                "health": "/api/health",
+            },
         }
 
         span.set_tag("response.status", 200)

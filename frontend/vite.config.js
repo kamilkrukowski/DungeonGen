@@ -11,7 +11,4 @@ export default defineConfig({
       usePolling: true,
     },
   },
-  optimizeDeps: {
-    exclude: ['@mui/material', '@emotion/react', '@emotion/styled'],
-  },
 })

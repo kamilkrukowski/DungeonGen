@@ -102,6 +102,7 @@ uv run python app.py
 
 ### Environment Variables
 The `.env` file contains configuration for the backend:
+- `GROQ_API_KEY` - GROQ API key for AI-powered dungeon generation
 - `FLASK_ENV` - Flask environment (development/production)
 - `PORT` - Backend server port
 - `DATABASE_URL` - Database connection string
@@ -111,6 +112,12 @@ The `.env` file contains configuration for the backend:
 - `JAEGER_AGENT_PORT` - Jaeger agent port
 - `JAEGER_ENDPOINT` - Jaeger collector endpoint
 - `JAEGER_SERVICE_NAME` - Service name for tracing
+
+### GROQ API Setup
+1. Get your GROQ API key from [https://console.groq.com/](https://console.groq.com/)
+2. Create a `.env` file in the root directory
+3. Add your GROQ API key: `GROQ_API_KEY=your_actual_api_key_here`
+4. For frontend development, also add: `VITE_GROQ_API_KEY=your_actual_api_key_here`
 
 ### Docker Configuration
 - Frontend runs on port 3000
