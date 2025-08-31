@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy UV configuration files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies using UV and create virtual environment
-RUN uv sync --frozen
+# Install dependencies directly to system Python using UV
+RUN uv pip install --system .
 
 # Copy source code
 COPY . .
@@ -17,5 +17,5 @@ COPY . .
 # Expose port
 EXPOSE 5000
 
-# Start the application using the virtual environment Python
-CMD ["uv", "run", "--python", "python", "app.py"]
+# Start the application directly with system Python
+CMD ["python", "app.py"]
