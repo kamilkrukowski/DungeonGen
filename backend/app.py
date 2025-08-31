@@ -9,7 +9,7 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from api.generate.router import generate_bp
 
 # Import utilities
-from utils import simple_trace, tracer
+from utils import simple_trace
 
 # Load environment variables
 load_dotenv()
@@ -23,7 +23,6 @@ CORS(
 
 # Instrument Flask
 FlaskInstrumentor().instrument_app(app)
-
 
 app.register_blueprint(generate_bp)
 
@@ -48,24 +47,6 @@ def home():
 @simple_trace("health_check_endpoint")
 def health_check():
     result = {"status": "healthy", "service": "dungeongen-backend"}
-    return jsonify(result)
-
-
-@app.route("/api/trace-test")
-@simple_trace("trace_test_endpoint")
-def trace_test():
-    # Simulate some work
-    with tracer.start_as_current_span("simulate_work") as work_span:
-        work_span.set_attribute("work.type", "simulation")
-        import time
-
-        time.sleep(0.1)  # Simulate some processing time
-
-    result = {
-        "message": "Trace test endpoint",
-        "tracing_enabled": True,
-        "service": "dungeongen-backend",
-    }
     return jsonify(result)
 
 
