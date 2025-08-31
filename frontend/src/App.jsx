@@ -17,7 +17,11 @@ import Alert from '@mui/material/Alert'
 import Chat from '@mui/icons-material/Chat'
 import Send from '@mui/icons-material/Send'
 import Castle from '@mui/icons-material/Castle'
+import GridViewIcon from '@mui/icons-material/GridView'
 import './App.css'
+import DungeonGrid from './components/DungeonGrid'
+import { parseDungeonData } from './models/DungeonModels'
+import { sampleDungeonResponse, testDungeonParsing } from './test-dungeon-data'
 
 // Create a custom theme with dungeon-inspired colors
 const theme = createTheme({
@@ -92,6 +96,9 @@ function ChatComponent({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [dungeonResult, setDungeonResult] = useState(null);
+  const [parsedDungeonData, setParsedDungeonData] = useState(null);
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [showGrid, setShowGrid] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -101,6 +108,7 @@ function ChatComponent({ open, onClose }) {
     setLoading(true);
     setError('');
     setDungeonResult(null);
+    setParsedDungeonData(null);
 
     // Add user message to chat history
     const newUserMessage = {
@@ -154,6 +162,7 @@ function ChatComponent({ open, onClose }) {
     setLoading(true);
     setError('');
     setDungeonResult(null);
+    setParsedDungeonData(null);
 
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
@@ -168,6 +177,16 @@ function ChatComponent({ open, onClose }) {
 
       if (response.ok) {
         setDungeonResult(data);
+
+        // Parse the dungeon data
+        try {
+          const parsed = parseDungeonData(data);
+          setParsedDungeonData(parsed);
+          setShowGrid(true);
+        } catch (parseError) {
+          console.error('Error parsing dungeon data:', parseError);
+          setError('Generated dungeon data could not be parsed for display');
+        }
       } else {
         setError(data.error || 'Failed to generate structured dungeon');
       }
@@ -182,6 +201,26 @@ function ChatComponent({ open, onClose }) {
     setChatHistory([]);
     setError('');
     setDungeonResult(null);
+    setParsedDungeonData(null);
+    setShowGrid(false);
+    setSelectedRoomId(null);
+  };
+
+  const handleRoomSelect = (room) => {
+    setSelectedRoomId(room.id);
+  };
+
+  const handleTestParsing = () => {
+    testDungeonParsing();
+    try {
+      const parsed = parseDungeonData(sampleDungeonResponse);
+      setParsedDungeonData(parsed);
+      setShowGrid(true);
+      console.log('Test dungeon loaded successfully!');
+    } catch (error) {
+      console.error('Test dungeon loading failed:', error);
+      setError('Failed to load test dungeon data');
+    }
   };
 
   return (
@@ -205,13 +244,32 @@ function ChatComponent({ open, onClose }) {
           <Chat sx={{ mr: 1, verticalAlign: 'middle' }} />
           Dungeon Generator Chat
         </Typography>
-        <Button
-          onClick={clearHistory}
-          sx={{ color: 'white', fontSize: '0.8rem' }}
-          size="small"
-        >
-          Clear History
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            onClick={handleTestParsing}
+            sx={{ color: 'white', fontSize: '0.8rem' }}
+            size="small"
+          >
+            Test Grid
+          </Button>
+          {parsedDungeonData && (
+            <Button
+              onClick={() => setShowGrid(!showGrid)}
+              sx={{ color: 'white', fontSize: '0.8rem' }}
+              size="small"
+              startIcon={<GridViewIcon />}
+            >
+              {showGrid ? 'Hide Grid' : 'Show Grid'}
+            </Button>
+          )}
+          <Button
+            onClick={clearHistory}
+            sx={{ color: 'white', fontSize: '0.8rem' }}
+            size="small"
+          >
+            Clear History
+          </Button>
+        </Box>
       </Box>
 
       {/* Content */}
@@ -219,6 +277,39 @@ function ChatComponent({ open, onClose }) {
         <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
           Describe the type of dungeon you want to generate. Be specific about themes, challenges, or special features!
         </Typography>
+
+        {/* Dungeon Grid Display */}
+        {showGrid && parsedDungeonData && (
+          <Card sx={{ mb: 3, backgroundColor: '#f8f9fa' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+                Dungeon Layout Visualization
+              </Typography>
+              <Box sx={{
+                width: '100%',
+                height: 600,
+                border: '1px solid #e0e0e0',
+                borderRadius: 1,
+                overflow: 'hidden'
+              }}>
+                <DungeonGrid
+                  dungeonData={parsedDungeonData}
+                  width="100%"
+                  height={600}
+                  onRoomSelect={handleRoomSelect}
+                  selectedRoomId={selectedRoomId}
+                />
+              </Box>
+              {selectedRoomId && (
+                <Box sx={{ mt: 2, p: 2, backgroundColor: 'white', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Selected Room: {selectedRoomId}
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Chat History */}
         <Box sx={{
@@ -229,7 +320,7 @@ function ChatComponent({ open, onClose }) {
           borderRadius: 2,
           p: 2,
           backgroundColor: '#fafafa',
-          minHeight: '300px'
+          minHeight: showGrid ? '200px' : '300px'
         }}>
           {chatHistory.length === 0 ? (
             <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
@@ -288,12 +379,12 @@ function ChatComponent({ open, onClose }) {
           </Alert>
         )}
 
-        {/* Dungeon Result Display */}
-        {dungeonResult && (
+        {/* Dungeon Result Display (JSON) - Only show if grid is hidden */}
+        {dungeonResult && !showGrid && (
           <Card sx={{ mb: 2, backgroundColor: '#f8f9fa' }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-                Generated Dungeon Structure
+                Generated Dungeon Structure (JSON)
               </Typography>
               <TextField
                 fullWidth

@@ -164,6 +164,17 @@ class GenerateStructuredDungeon(Resource):
                 for conn in dungeon_layout.connections
             ],
             "metadata": dungeon_layout.metadata,
+            "viewport": (
+                {
+                    "min_x": dungeon_layout.viewport.min_x,
+                    "min_y": dungeon_layout.viewport.min_y,
+                    "max_x": dungeon_layout.viewport.max_x,
+                    "max_y": dungeon_layout.viewport.max_y,
+                    "margin": dungeon_layout.viewport.margin,
+                }
+                if dungeon_layout.viewport
+                else None
+            ),
         }
 
 

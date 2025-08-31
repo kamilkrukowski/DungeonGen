@@ -30,6 +30,53 @@ class Coordinates:
 
 
 @dataclass
+class CanvasViewport:
+    """Canvas viewport dimensions for automatic grid fitting."""
+
+    min_x: int
+    min_y: int
+    max_x: int
+    max_y: int
+    margin: int = 5  # Default margin around the dungeon
+
+    @property
+    def width(self) -> int:
+        """Viewport width in grid units."""
+        return self.max_x - self.min_x
+
+    @property
+    def height(self) -> int:
+        """Viewport height in grid units."""
+        return self.max_y - self.min_y
+
+    @property
+    def center(self) -> Coordinates:
+        """Center point of the viewport."""
+        return Coordinates(
+            (self.min_x + self.max_x) // 2, (self.min_y + self.max_y) // 2
+        )
+
+    @classmethod
+    def from_rooms(cls, rooms: list["Room"], margin: int = 5) -> "CanvasViewport":
+        """Create viewport from a list of rooms."""
+        if not rooms:
+            return cls(min_x=-10, min_y=-10, max_x=10, max_y=10, margin=margin)
+
+        min_x = min(room.anchor.x for room in rooms if room.anchor)
+        max_x = max(room.anchor.x + room.width for room in rooms if room.anchor)
+        min_y = min(room.anchor.y for room in rooms if room.anchor)
+        max_y = max(room.anchor.y + room.height for room in rooms if room.anchor)
+
+        return cls(
+            min_x=min_x - margin,
+            min_y=min_y - margin,
+            max_x=max_x + margin,
+            max_y=max_y + margin,
+            margin=margin,
+        )
+
+
+@dataclass
 class Room:
     """Represents a room in the dungeon."""
 
@@ -93,6 +140,12 @@ class DungeonLayout:
     rooms: list[Room] = field(default_factory=list)
     connections: list[Connection] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    viewport: CanvasViewport | None = None
+
+    def __post_init__(self):
+        """Calculate viewport after initialization if not provided."""
+        if self.viewport is None and self.rooms:
+            self.viewport = CanvasViewport.from_rooms(self.rooms)
 
 
 @dataclass
