@@ -49,6 +49,7 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - COLLECTOR_JAEGER_THRIFT_HTTP_PORT=14268
     networks:
       - dungeongen-network
 

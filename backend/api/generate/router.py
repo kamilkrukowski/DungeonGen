@@ -5,6 +5,7 @@ Generate endpoint router for dungeon generation.
 from flask import Blueprint, jsonify, request
 
 from src.dungeon.generator import DungeonGenerator
+from utils import simple_trace
 
 from .models import ErrorResponse, GenerateRequest, GenerateResponse
 
@@ -17,6 +18,7 @@ dungeon_generator = DungeonGenerator()
 
 @generate_bp.route("/", methods=["POST"])
 @generate_bp.route("", methods=["POST"])
+@simple_trace("generate_dungeon")
 def generate_dungeon():
     """Generate a dungeon based on user input."""
     try:
@@ -52,6 +54,7 @@ def generate_dungeon():
 
 
 @generate_bp.route("/info", methods=["GET"])
+@simple_trace("get_generator_info")
 def get_generator_info():
     """Get information about the dungeon generator."""
     try:
