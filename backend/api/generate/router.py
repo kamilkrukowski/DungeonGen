@@ -1,14 +1,17 @@
 """
-Generate endpoint router for dungeon generation.
+Generate endpoint router for structured dungeon generation.
 """
 
 from flask import Blueprint, jsonify, request
 from flask_restx import Namespace, Resource, fields
 
+# Import for structured generation
+from models.dungeon import GenerationOptions
 from src.dungeon.generator import DungeonGenerator
+from src.dungeon.utils import parse_user_guidelines
 from utils import simple_trace
 
-from .models import ErrorResponse, GenerateRequest, GenerateResponse
+from .models import DungeonGenerateRequest, DungeonGenerateResponse, ErrorResponse
 
 # Create blueprint for backward compatibility
 generate_bp = Blueprint("generate", __name__, url_prefix="/api/generate")
@@ -17,32 +20,39 @@ generate_bp = Blueprint("generate", __name__, url_prefix="/api/generate")
 dungeon_generator = DungeonGenerator()
 
 # Create namespace for Flask-RESTX
-generate_ns = Namespace("generate", description="Dungeon generation operations")
-
-# Define models for the namespace
-generate_request_model = generate_ns.model(
-    "GenerateRequest",
-    {
-        "message": fields.String(
-            required=True,
-            description="User description of the desired dungeon",
-            example="Create a haunted castle with ghostly encounters and hidden passages",
-        )
-    },
-)
-
-generate_response_model = generate_ns.model(
-    "GenerateResponse",
-    {
-        "message": fields.String(description="Generated dungeon description"),
-        "user_input": fields.String(description="Original user input"),
-        "model": fields.String(description="AI model used for generation"),
-        "status": fields.String(description="Generation status"),
-    },
+generate_ns = Namespace(
+    "generate", description="Structured dungeon generation operations"
 )
 
 error_model = generate_ns.model(
     "Error", {"error": fields.String(description="Error message")}
+)
+
+# Define models for structured dungeon generation
+dungeon_generate_request_model = generate_ns.model(
+    "DungeonGenerateRequest",
+    {
+        "guidelines": fields.String(
+            required=True,
+            description="User description of the desired dungeon",
+            example="Create a haunted castle with ghostly encounters and hidden passages",
+        ),
+        "options": fields.Raw(
+            required=False, description="Optional generation parameters"
+        ),
+    },
+)
+
+dungeon_generate_response_model = generate_ns.model(
+    "DungeonGenerateResponse",
+    {
+        "dungeon": fields.Raw(description="Generated dungeon data"),
+        "guidelines": fields.Raw(description="Parsed guidelines"),
+        "options": fields.Raw(description="Generation options used"),
+        "generation_time": fields.String(description="Generation timestamp"),
+        "status": fields.String(description="Generation status"),
+        "errors": fields.List(fields.String, description="Any errors encountered"),
+    },
 )
 
 generator_info_model = generate_ns.model(
@@ -56,16 +66,16 @@ generator_info_model = generate_ns.model(
 )
 
 
-@generate_ns.route("/")
-class GenerateDungeon(Resource):
-    @generate_ns.doc("generate_dungeon")
-    @generate_ns.expect(generate_request_model)
-    @generate_ns.response(200, "Success", generate_response_model)
+@generate_ns.route("/dungeon")
+class GenerateStructuredDungeon(Resource):
+    @generate_ns.doc("generate_structured_dungeon")
+    @generate_ns.expect(dungeon_generate_request_model)
+    @generate_ns.response(200, "Success", dungeon_generate_response_model)
     @generate_ns.response(400, "Bad Request", error_model)
     @generate_ns.response(500, "Internal Server Error", error_model)
-    @simple_trace("generate_dungeon")
+    @simple_trace("generate_structured_dungeon")
     def post(self):
-        """Generate a dungeon based on user input."""
+        """Generate a structured dungeon based on user guidelines."""
         try:
             # Validate request data
             data = request.get_json()
@@ -74,15 +84,49 @@ class GenerateDungeon(Resource):
 
             # Validate request using Pydantic model
             try:
-                generate_request = GenerateRequest(**data)
+                dungeon_request = DungeonGenerateRequest(**data)
             except Exception as e:
                 return ErrorResponse(error=f"Invalid request: {str(e)}").dict(), 400
 
-            # Generate dungeon using business logic
-            result = dungeon_generator.generate_dungeon(generate_request.message)
+            # Parse user guidelines into structured format
+            guidelines = parse_user_guidelines(dungeon_request.guidelines)
+
+            # Create generation options
+            options = GenerationOptions()
+            if dungeon_request.options:
+                # Apply any custom options
+                for key, value in dungeon_request.options.items():
+                    if hasattr(options, key):
+                        setattr(options, key, value)
+
+            # Generate structured dungeon using business logic
+            result = dungeon_generator.generate_dungeon(guidelines, options)
+
+            # Convert result to dict format for JSON response
+            response_data = {
+                "dungeon": self._dungeon_to_dict(result.dungeon),
+                "guidelines": {
+                    "theme": result.guidelines.theme,
+                    "atmosphere": result.guidelines.atmosphere,
+                    "difficulty": result.guidelines.difficulty,
+                    "room_count": result.guidelines.room_count,
+                    "layout_type": result.guidelines.layout_type,
+                    "special_requirements": result.guidelines.special_requirements,
+                },
+                "options": {
+                    "include_contents": result.options.include_contents,
+                    "include_atmosphere": result.options.include_atmosphere,
+                    "include_challenges": result.options.include_challenges,
+                    "include_treasures": result.options.include_treasures,
+                    "llm_model": result.options.llm_model,
+                },
+                "generation_time": result.generation_time.isoformat(),
+                "status": result.status,
+                "errors": result.errors,
+            }
 
             # Validate response using Pydantic model
-            response = GenerateResponse(**result)
+            response = DungeonGenerateResponse(**response_data)
 
             return response.dict(), 200
 
@@ -90,6 +134,37 @@ class GenerateDungeon(Resource):
             return ErrorResponse(error=str(e)).dict(), 400
         except Exception as e:
             return ErrorResponse(error=f"Generation failed: {str(e)}").dict(), 500
+
+    def _dungeon_to_dict(self, dungeon_layout):
+        """Convert dungeon layout to dictionary format."""
+        return {
+            "rooms": [
+                {
+                    "id": room.id,
+                    "name": room.name,
+                    "description": room.description,
+                    "anchor": (
+                        {"x": room.anchor.x, "y": room.anchor.y}
+                        if room.anchor
+                        else None
+                    ),
+                    "width": room.width,
+                    "height": room.height,
+                    "shape": room.shape.value,
+                }
+                for room in dungeon_layout.rooms
+            ],
+            "connections": [
+                {
+                    "room_a_id": conn.room_a_id,
+                    "room_b_id": conn.room_b_id,
+                    "connection_type": conn.connection_type,
+                    "description": conn.description,
+                }
+                for conn in dungeon_layout.connections
+            ],
+            "metadata": dungeon_layout.metadata,
+        }
 
 
 @generate_ns.route("/info")
@@ -108,11 +183,10 @@ class GeneratorInfo(Resource):
 
 
 # Legacy route handlers for backward compatibility
-@generate_bp.route("/", methods=["POST"])
-@generate_bp.route("", methods=["POST"])
-@simple_trace("generate_dungeon")
-def generate_dungeon_legacy():
-    """Generate a dungeon based on user input (legacy endpoint)."""
+@generate_bp.route("/dungeon", methods=["POST"])
+@simple_trace("generate_structured_dungeon")
+def generate_structured_dungeon_legacy():
+    """Generate a structured dungeon based on user guidelines (legacy endpoint)."""
     try:
         # Validate request data
         data = request.get_json()
@@ -121,18 +195,79 @@ def generate_dungeon_legacy():
 
         # Validate request using Pydantic model
         try:
-            generate_request = GenerateRequest(**data)
+            dungeon_request = DungeonGenerateRequest(**data)
         except Exception as e:
             return (
                 jsonify(ErrorResponse(error=f"Invalid request: {str(e)}").dict()),
                 400,
             )
 
-        # Generate dungeon using business logic
-        result = dungeon_generator.generate_dungeon(generate_request.message)
+        # Parse user guidelines into structured format
+        guidelines = parse_user_guidelines(dungeon_request.guidelines)
+
+        # Create generation options
+        options = GenerationOptions()
+        if dungeon_request.options:
+            # Apply any custom options
+            for key, value in dungeon_request.options.items():
+                if hasattr(options, key):
+                    setattr(options, key, value)
+
+        # Generate structured dungeon using business logic
+        result = dungeon_generator.generate_dungeon(guidelines, options)
+
+        # Convert result to dict format for JSON response
+        response_data = {
+            "dungeon": {
+                "rooms": [
+                    {
+                        "id": room.id,
+                        "name": room.name,
+                        "description": room.description,
+                        "anchor": (
+                            {"x": room.anchor.x, "y": room.anchor.y}
+                            if room.anchor
+                            else None
+                        ),
+                        "width": room.width,
+                        "height": room.height,
+                        "shape": room.shape.value,
+                    }
+                    for room in result.dungeon.rooms
+                ],
+                "connections": [
+                    {
+                        "room_a_id": conn.room_a_id,
+                        "room_b_id": conn.room_b_id,
+                        "connection_type": conn.connection_type,
+                        "description": conn.description,
+                    }
+                    for conn in result.dungeon.connections
+                ],
+                "metadata": result.dungeon.metadata,
+            },
+            "guidelines": {
+                "theme": result.guidelines.theme,
+                "atmosphere": result.guidelines.atmosphere,
+                "difficulty": result.guidelines.difficulty,
+                "room_count": result.guidelines.room_count,
+                "layout_type": result.guidelines.layout_type,
+                "special_requirements": result.guidelines.special_requirements,
+            },
+            "options": {
+                "include_contents": result.options.include_contents,
+                "include_atmosphere": result.options.include_atmosphere,
+                "include_challenges": result.options.include_challenges,
+                "include_treasures": result.options.include_treasures,
+                "llm_model": result.options.llm_model,
+            },
+            "generation_time": result.generation_time.isoformat(),
+            "status": result.status,
+            "errors": result.errors,
+        }
 
         # Validate response using Pydantic model
-        response = GenerateResponse(**result)
+        response = DungeonGenerateResponse(**response_data)
 
         return jsonify(response.dict()), 200
 

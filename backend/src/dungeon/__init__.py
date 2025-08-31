@@ -1,5 +1,5 @@
 """
-Dungeon generation module.
+Dungeon generation package.
 """
 
 from .generator import DungeonGenerator

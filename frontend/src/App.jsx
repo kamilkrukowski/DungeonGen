@@ -16,6 +16,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
 import Chat from '@mui/icons-material/Chat'
 import Send from '@mui/icons-material/Send'
+import Castle from '@mui/icons-material/Castle'
 import './App.css'
 
 // Create a custom theme with dungeon-inspired colors
@@ -26,7 +27,7 @@ const theme = createTheme({
       dark: '#1a252f',
     },
     secondary: {
-      main: '#e74c3c',
+      main: '#8e44ad',
     },
     background: {
       default: '#f8f9fa',
@@ -90,6 +91,7 @@ function ChatComponent({ open, onClose }) {
   const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [dungeonResult, setDungeonResult] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -98,6 +100,7 @@ function ChatComponent({ open, onClose }) {
     const userMessage = message.trim();
     setLoading(true);
     setError('');
+    setDungeonResult(null);
 
     // Add user message to chat history
     const newUserMessage = {
@@ -111,7 +114,7 @@ function ChatComponent({ open, onClose }) {
     setMessage(''); // Clear input immediately
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -144,9 +147,41 @@ function ChatComponent({ open, onClose }) {
     }
   };
 
+  const handleDungeonGenerate = async () => {
+    if (!message.trim()) return;
+
+    const userMessage = message.trim();
+    setLoading(true);
+    setError('');
+    setDungeonResult(null);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ guidelines: userMessage }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setDungeonResult(data);
+      } else {
+        setError(data.error || 'Failed to generate structured dungeon');
+      }
+    } catch (err) {
+      setError('Network error. Please check if the backend is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const clearHistory = () => {
     setChatHistory([]);
     setError('');
+    setDungeonResult(null);
   };
 
   return (
@@ -253,6 +288,34 @@ function ChatComponent({ open, onClose }) {
           </Alert>
         )}
 
+        {/* Dungeon Result Display */}
+        {dungeonResult && (
+          <Card sx={{ mb: 2, backgroundColor: '#f8f9fa' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
+                Generated Dungeon Structure
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={8}
+                variant="outlined"
+                value={JSON.stringify(dungeonResult, null, 2)}
+                InputProps={{
+                  readOnly: true,
+                  style: { fontFamily: 'monospace', fontSize: '0.875rem' }
+                }}
+                sx={{ mb: 2 }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Status: {dungeonResult.status} |
+                Generated at: {new Date(dungeonResult.generation_time).toLocaleString()}
+                {dungeonResult.errors.length > 0 && ` | Errors: ${dungeonResult.errors.join(', ')}`}
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Message Input */}
         <form onSubmit={handleSubmit}>
           <TextField
@@ -267,15 +330,29 @@ function ChatComponent({ open, onClose }) {
             sx={{ mb: 2 }}
           />
 
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={loading || !message.trim()}
-            startIcon={loading ? <CircularProgress size={20} /> : <Send />}
-            fullWidth
-          >
-            {loading ? 'Generating...' : 'Generate Dungeon'}
-          </Button>
+          {/* Split Button Layout */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={loading || !message.trim()}
+              startIcon={loading ? <CircularProgress size={20} /> : <Send />}
+              sx={{ flex: 1 }}
+            >
+              {loading ? 'Generating...' : 'Chat'}
+            </Button>
+
+            <Button
+              variant="contained"
+              color="secondary"
+              disabled={loading || !message.trim()}
+              startIcon={loading ? <CircularProgress size={20} /> : <Castle />}
+              onClick={handleDungeonGenerate}
+              sx={{ flex: 1 }}
+            >
+              {loading ? 'Generating...' : 'Dungeon'}
+            </Button>
+          </Box>
         </form>
       </Box>
     </Paper>
