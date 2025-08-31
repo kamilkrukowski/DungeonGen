@@ -36,6 +36,40 @@ const DungeonGrid = ({
   const [hoveredRoom, setHoveredRoom] = useState(null);
   const [baseScale, setBaseScale] = useState(1); // The scale that represents "fit to viewport"
 
+  // Calculate pan boundaries based on dungeon viewport
+  const getPanBoundaries = useCallback(() => {
+    if (!dungeonData || !dungeonData.dungeon || !dungeonData.dungeon.viewport) {
+      return { minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 };
+    }
+
+    const viewport = dungeonData.dungeon.viewport;
+    const actualScale = baseScale * scale;
+
+    // Calculate dungeon size in screen coordinates
+    const dungeonWidth = viewport.width * GRID_SIZE * actualScale;
+    const dungeonHeight = viewport.height * GRID_SIZE * actualScale;
+
+    // Use the larger dimension divided by 2 for both axes
+    const largerDimension = Math.max(dungeonWidth, dungeonHeight);
+    const margin = largerDimension / 2.0;
+
+    const minX = -margin;
+    const maxX = margin;
+    const minY = -margin;
+    const maxY = margin;
+
+    return { minX, maxX, minY, maxY };
+  }, [dungeonData, baseScale, scale]);
+
+  // Clamp position within boundaries
+  const clampPosition = useCallback((pos) => {
+    const boundaries = getPanBoundaries();
+    return {
+      x: Math.max(boundaries.minX, Math.min(boundaries.maxX, pos.x)),
+      y: Math.max(boundaries.minY, Math.min(boundaries.maxY, pos.y))
+    };
+  }, [getPanBoundaries]);
+
   // Handle responsive width
   useEffect(() => {
     if (typeof width === 'string' && width.includes('%')) {
@@ -92,25 +126,21 @@ const DungeonGrid = ({
 
   // Convert grid coordinates to screen coordinates
   const gridToScreen = useCallback((gridX, gridY) => {
-    const centerX = actualWidth / 2;
-    const centerY = actualHeight / 2;
     const actualScale = baseScale * scale;
     return {
-      x: centerX + (gridX * GRID_SIZE * actualScale) + position.x,
-      y: centerY + (gridY * GRID_SIZE * actualScale) + position.y
+      x: (gridX * GRID_SIZE * actualScale) + position.x,
+      y: (gridY * GRID_SIZE * actualScale) + position.y
     };
-  }, [actualWidth, actualHeight, baseScale, scale, position]);
+  }, [baseScale, scale, position]);
 
   // Convert screen coordinates to grid coordinates
   const screenToGrid = useCallback((screenX, screenY) => {
-    const centerX = actualWidth / 2;
-    const centerY = actualHeight / 2;
     const actualScale = baseScale * scale;
     return {
-      x: Math.round((screenX - centerX - position.x) / (GRID_SIZE * actualScale)),
-      y: Math.round((screenY - centerY - position.y) / (GRID_SIZE * actualScale))
+      x: Math.round((screenX - position.x) / (GRID_SIZE * actualScale)),
+      y: Math.round((screenY - position.y) / (GRID_SIZE * actualScale))
     };
-  }, [actualWidth, actualHeight, baseScale, scale, position]);
+  }, [baseScale, scale, position]);
 
   // Find room at screen coordinates
   const findRoomAtPosition = useCallback((screenX, screenY) => {
@@ -231,7 +261,7 @@ const DungeonGrid = ({
 
     const oldScale = scale;
     const newScale = e.deltaY > 0 ? oldScale * 0.9 : oldScale * 1.1;
-    const clampedScale = Math.max(0.1, Math.min(3, newScale));
+    const clampedScale = Math.max(0.8, Math.min(3, newScale));
 
     // Calculate new position to zoom towards mouse
     const scaleRatio = clampedScale / oldScale;
@@ -256,23 +286,23 @@ const DungeonGrid = ({
 
         const oldScale = scale;
         const newScale = e.deltaY > 0 ? oldScale * 0.9 : oldScale * 1.1;
-        const clampedScale = Math.max(0.1, Math.min(3, newScale));
+        const clampedScale = Math.max(0.8, Math.min(3, newScale));
 
         // Calculate new position to zoom towards mouse
         // Convert mouse position to grid coordinates
-        const centerX = actualWidth / 2;
-        const centerY = actualHeight / 2;
         const actualScale = baseScale * oldScale;
-        const mouseGridX = (mouseX - centerX - position.x) / (GRID_SIZE * actualScale);
-        const mouseGridY = (mouseY - centerY - position.y) / (GRID_SIZE * actualScale);
+        const mouseGridX = (mouseX - position.x) / (GRID_SIZE * actualScale);
+        const mouseGridY = (mouseY - position.y) / (GRID_SIZE * actualScale);
 
-        // Calculate new position to keep mouse at same grid position
+                // Calculate new position to keep mouse at same grid position
         const newActualScale = baseScale * clampedScale;
-        const newX = mouseX - centerX - (mouseGridX * GRID_SIZE * newActualScale);
-        const newY = mouseY - centerY - (mouseGridY * GRID_SIZE * newActualScale);
+        const newX = mouseX - (mouseGridX * GRID_SIZE * newActualScale);
+        const newY = mouseY - (mouseGridY * GRID_SIZE * newActualScale);
+
+        const clampedPosition = clampPosition({ x: newX, y: newY });
 
         setScale(clampedScale);
-        setPosition({ x: newX, y: newY });
+        setPosition(clampedPosition);
       };
 
     canvas.addEventListener('wheel', wheelHandler, { passive: false });
@@ -291,13 +321,15 @@ const DungeonGrid = ({
     });
   }, [position]);
 
-  // Handle mouse move for panning and hover
+    // Handle mouse move for panning and hover
   const handleMouseMove = useCallback((e) => {
     if (isDragging) {
-      setPosition({
+      const newPosition = {
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
-      });
+      };
+      const clampedPosition = clampPosition(newPosition);
+      setPosition(clampedPosition);
     } else {
       // Check for room hover
       const rect = canvasRef.current.getBoundingClientRect();
@@ -309,7 +341,7 @@ const DungeonGrid = ({
       // Update cursor
       canvasRef.current.style.cursor = room ? 'pointer' : 'grab';
     }
-  }, [isDragging, dragStart, findRoomAtPosition]);
+  }, [isDragging, dragStart, findRoomAtPosition, clampPosition]);
 
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
@@ -328,18 +360,14 @@ const DungeonGrid = ({
     if (room && onRoomSelect) {
       onRoomSelect(room);
     }
-  }, [isDragging, findRoomAtPosition, onRoomSelect]);
+    }, [isDragging, findRoomAtPosition, onRoomSelect]);
 
   // Zoom controls
   const handleZoomIn = () => {
     const oldScale = scale;
     const newScale = Math.min(3, oldScale * 1.2);
 
-    // Zoom towards center of viewport
-    const centerX = actualWidth / 2;
-    const centerY = actualHeight / 2;
-
-    // Calculate new position to keep center at same grid position
+    // Zoom towards center of viewport (0,0 in grid coordinates)
     const actualScale = baseScale * oldScale;
     const centerGridX = -position.x / (GRID_SIZE * actualScale);
     const centerGridY = -position.y / (GRID_SIZE * actualScale);
@@ -348,19 +376,17 @@ const DungeonGrid = ({
     const newX = -(centerGridX * GRID_SIZE * newActualScale);
     const newY = -(centerGridY * GRID_SIZE * newActualScale);
 
+    const clampedPosition = clampPosition({ x: newX, y: newY });
+
     setScale(newScale);
-    setPosition({ x: newX, y: newY });
+    setPosition(clampedPosition);
   };
 
   const handleZoomOut = () => {
     const oldScale = scale;
-    const newScale = Math.max(0.1, oldScale / 1.2);
+    const newScale = Math.max(0.8, oldScale / 1.2); // Min zoom is 0.8
 
-    // Zoom towards center of viewport
-    const centerX = actualWidth / 2;
-    const centerY = actualHeight / 2;
-
-    // Calculate new position to keep center at same grid position
+    // Zoom towards center of viewport (0,0 in grid coordinates)
     const actualScale = baseScale * oldScale;
     const centerGridX = -position.x / (GRID_SIZE * actualScale);
     const centerGridY = -position.y / (GRID_SIZE * actualScale);
@@ -369,8 +395,10 @@ const DungeonGrid = ({
     const newX = -(centerGridX * GRID_SIZE * newActualScale);
     const newY = -(centerGridY * GRID_SIZE * newActualScale);
 
+    const clampedPosition = clampPosition({ x: newX, y: newY });
+
     setScale(newScale);
-    setPosition({ x: newX, y: newY });
+    setPosition(clampedPosition);
   };
 
   const handleResetView = () => {
@@ -390,13 +418,11 @@ const DungeonGrid = ({
     const scaleY = (actualHeight * 0.8) / (viewportHeight * GRID_SIZE);
     const newBaseScale = Math.min(scaleX, scaleY, 2); // Cap at 2x zoom
 
-    // Center the viewport by calculating the offset needed
-    // The grid coordinate system has (0,0) at the center of the canvas
-    // We need to pan so that the viewport center appears at the canvas center
-    const viewportCenter = viewport.center;
+    // Center the dungeon on the canvas by offsetting the position
+    // This makes clamping much simpler since the dungeon is at (0,0) relative to canvas center
     const newPosition = {
-      x: -(viewportCenter.x * GRID_SIZE * newBaseScale),
-      y: -(viewportCenter.y * GRID_SIZE * newBaseScale)
+      x: actualWidth / 2 - (viewportWidth * GRID_SIZE * newBaseScale) / 2,
+      y: actualHeight / 2 - (viewportHeight * GRID_SIZE * newBaseScale) / 2
     };
 
     setBaseScale(newBaseScale);
