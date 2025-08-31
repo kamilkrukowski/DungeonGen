@@ -9,6 +9,7 @@ from models.dungeon import (
     GenerationOptions,
     Room,
 )
+from utils import simple_trace
 
 from .generators import LineGraphLayoutGenerator, LLMContentGenerator, PostProcessor
 
@@ -22,6 +23,7 @@ class DungeonGenerator:
         self.content_generator = LLMContentGenerator()
         self.post_processor = PostProcessor()
 
+    @simple_trace("DungeonGenerator.generate_dungeon")
     def generate_dungeon(
         self, guidelines: DungeonGuidelines, options: GenerationOptions | None = None
     ) -> DungeonResult:

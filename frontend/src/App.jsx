@@ -302,9 +302,25 @@ function ChatComponent({ open, onClose }) {
               </Box>
               {selectedRoomId && (
                 <Box sx={{ mt: 2, p: 2, backgroundColor: 'white', borderRadius: 1 }}>
-                  <Typography variant="subtitle2" color="primary">
-                    Selected Room: {selectedRoomId}
-                  </Typography>
+                  {parsedDungeonData && parsedDungeonData.dungeon && (() => {
+                    const selectedRoom = parsedDungeonData.dungeon.rooms.find(room => room.id === selectedRoomId);
+                    return selectedRoom ? (
+                      <>
+                        <Typography variant="subtitle2" color="primary" gutterBottom>
+                          Selected Room: {selectedRoom.name}
+                        </Typography>
+                        {selectedRoom.description && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            {selectedRoom.description}
+                          </Typography>
+                        )}
+                      </>
+                    ) : (
+                      <Typography variant="subtitle2" color="primary" gutterBottom>
+                        Selected Room: {selectedRoomId}
+                      </Typography>
+                    );
+                  })()}
                 </Box>
               )}
             </CardContent>

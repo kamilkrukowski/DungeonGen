@@ -4,10 +4,12 @@ LLM-based content generation for dungeons.
 
 import json
 import os
+import re
 from typing import Any
 
 from langchain.schema import HumanMessage
 from langchain_groq import ChatGroq
+from opentelemetry import trace
 
 from models.dungeon import (
     DungeonGuidelines,
@@ -15,8 +17,67 @@ from models.dungeon import (
     GenerationOptions,
     RoomContent,
 )
+from utils import simple_trace
 
 from .base import BaseContentGenerator
+
+
+def _load_json(text: str) -> dict[str, Any]:
+    """
+    Robust JSON loading that handles various LLM response formats.
+
+    Args:
+        text: Text that may contain JSON
+
+    Returns:
+        Parsed JSON dictionary
+
+    Raises:
+        json.JSONDecodeError: If JSON cannot be parsed
+    """
+    # First, try direct JSON parsing
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+
+    # Try to extract JSON from markdown code blocks
+    json_block_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
+    match = re.search(json_block_pattern, text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # Try to extract JSON from backticks
+    backtick_pattern = r"`(\{.*?\})`"
+    match = re.search(backtick_pattern, text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # Try to find JSON object in the text
+    json_pattern = r"\{.*\}"
+    match = re.search(json_pattern, text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # Final fallback: use json-repair
+    try:
+        from json_repair import repair_json
+
+        repaired_json = repair_json(text)
+        return json.loads(repaired_json)
+    except (ImportError, json.JSONDecodeError) as err:
+        raise json.JSONDecodeError(
+            f"Could not parse JSON from text: {text[:200]}..."
+        ) from err
 
 
 class LLMContentGenerator(BaseContentGenerator):
@@ -37,6 +98,7 @@ class LLMContentGenerator(BaseContentGenerator):
         """Check if GROQ API is properly configured."""
         return self.chat_model is not None
 
+    @simple_trace("LLMContentGenerator.generate_room_dimensions")
     def generate_room_dimensions(
         self,
         layout: DungeonLayout,
@@ -94,12 +156,30 @@ Return only valid JSON:"""
         response = self.chat_model.invoke(messages)
 
         try:
-            # Parse JSON response
-            result = json.loads(response.content.strip())
+            # Parse JSON response using robust parser
+            result = _load_json(response.content.strip())
+
+            # Set span attributes for successful generation
+            current_span = trace.get_current_span()
+            if current_span:
+                current_span.set_attribute("layout_description", layout_description)
+                current_span.set_attribute("response", response.content.strip())
+                current_span.set_attribute("is_fallback", False)
+
             return result
         except json.JSONDecodeError:
             # Fallback to default dimensions
-            return self._generate_fallback_dimensions(layout)
+            result = self._generate_fallback_dimensions(layout)
+
+            # Set span attributes for fallback
+            current_span = trace.get_current_span()
+            if current_span:
+                current_span.set_attribute("layout_description", layout_description)
+                current_span.set_attribute("response", response.content.strip())
+                current_span.set_attribute("result", str(result))
+                current_span.set_attribute("is_fallback", True)
+
+            return result
 
     def generate_room_contents(
         self,
@@ -155,8 +235,8 @@ Return only valid JSON:"""
             response = self.chat_model.invoke(messages)
 
             try:
-                # Parse JSON response
-                content_data = json.loads(response.content.strip())
+                # Parse JSON response using robust parser
+                content_data = _load_json(response.content.strip())
 
                 room_content = RoomContent(
                     room_id=room.id,
