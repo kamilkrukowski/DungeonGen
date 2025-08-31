@@ -283,6 +283,8 @@ function ChatComponent({ open, onClose }) {
                 <Box sx={{ mt: 2, p: 2, backgroundColor: 'white', borderRadius: 1 }}>
                   {parsedDungeonData && parsedDungeonData.dungeon && (() => {
                     const selectedRoom = parsedDungeonData.dungeon.rooms.find(room => room.id === selectedRoomId);
+                    const roomContent = parsedDungeonData.dungeon.getRoomContent(selectedRoomId);
+
                     return selectedRoom ? (
                       <>
                         <Typography variant="subtitle2" color="primary" gutterBottom>
@@ -292,6 +294,20 @@ function ChatComponent({ open, onClose }) {
                           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                             {selectedRoom.description}
                           </Typography>
+                        )}
+                        {roomContent && (
+                          <>
+                            {roomContent.atmosphere && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                <strong>Atmosphere:</strong> {roomContent.atmosphere}
+                              </Typography>
+                            )}
+                            {roomContent.treasures && roomContent.treasures.length > 0 && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                <strong>Treasures:</strong> {roomContent.treasures.join(', ')}
+                              </Typography>
+                            )}
+                          </>
                         )}
                       </>
                     ) : (

@@ -176,7 +176,20 @@ export class DungeonLayout {
     const connections = (obj.connections || []).map(conn => Connection.fromObject(conn));
     const viewport = CanvasViewport.fromObject(obj.viewport) || CanvasViewport.fromRooms(rooms);
 
-    return new DungeonLayout(rooms, connections, obj.metadata || {}, viewport);
+    // Parse room contents from metadata if available
+    const roomContents = {};
+    if (obj.metadata && obj.metadata.room_contents) {
+      Object.entries(obj.metadata.room_contents).forEach(([roomId, contentData]) => {
+        roomContents[roomId] = RoomContent.fromObject(contentData);
+      });
+    }
+
+    const metadata = { ...obj.metadata, roomContents };
+    return new DungeonLayout(rooms, connections, metadata, viewport);
+  }
+
+  getRoomContent(roomId) {
+    return this.metadata.roomContents?.[roomId] || null;
   }
 }
 
