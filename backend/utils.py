@@ -22,10 +22,11 @@ def init_tracer():
     # Create a TracerProvider
     provider = TracerProvider(resource=resource)
 
-    # Create a JaegerExporter
+    # Create a JaegerExporter using HTTP endpoint instead of UDP agent
     jaeger_exporter = JaegerExporter(
-        agent_host_name=os.environ.get("JAEGER_AGENT_HOST", "localhost"),
-        agent_port=int(os.environ.get("JAEGER_AGENT_PORT", 6831)),
+        collector_endpoint=os.environ.get(
+            "JAEGER_ENDPOINT", "http://localhost:14268/api/traces"
+        ),
     )
 
     # Create a BatchSpanProcessor and add the exporter to the TracerProvider
