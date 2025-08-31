@@ -21,7 +21,6 @@ import GridViewIcon from '@mui/icons-material/GridView'
 import './App.css'
 import DungeonGrid from './components/DungeonGrid'
 import { parseDungeonData } from './models/DungeonModels'
-import { sampleDungeonResponse, testDungeonParsing } from './test-dungeon-data'
 
 // Create a custom theme with dungeon-inspired colors
 const theme = createTheme({
@@ -210,19 +209,6 @@ function ChatComponent({ open, onClose }) {
     setSelectedRoomId(room.id);
   };
 
-  const handleTestParsing = () => {
-    testDungeonParsing();
-    try {
-      const parsed = parseDungeonData(sampleDungeonResponse);
-      setParsedDungeonData(parsed);
-      setShowGrid(true);
-      console.log('Test dungeon loaded successfully!');
-    } catch (error) {
-      console.error('Test dungeon loading failed:', error);
-      setError('Failed to load test dungeon data');
-    }
-  };
-
   return (
     <Paper sx={{
       height: '100%',
@@ -245,13 +231,6 @@ function ChatComponent({ open, onClose }) {
           Dungeon Generator Chat
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            onClick={handleTestParsing}
-            sx={{ color: 'white', fontSize: '0.8rem' }}
-            size="small"
-          >
-            Test Grid
-          </Button>
           {parsedDungeonData && (
             <Button
               onClick={() => setShowGrid(!showGrid)}
