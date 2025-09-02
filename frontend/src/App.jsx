@@ -164,15 +164,29 @@ function ChatComponent({ open, onClose }) {
     setParsedDungeonData(null);
 
     try {
+      // Create structured dungeon generation request
+      const dungeonRequest = {
+        guidelines: userMessage,
+        options: {
+          room_count: 10,
+          layout_type: "poisson_disc"
+        }
+      };
+
+      // Debug: Log what we're sending
+      console.log('Frontend sending dungeon request:', dungeonRequest);
+      console.log('Frontend sending JSON payload:', JSON.stringify(dungeonRequest, null, 2));
+
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ guidelines: userMessage }),
+        body: JSON.stringify(dungeonRequest),
       });
 
       const data = await response.json();
+      console.log('Frontend received response:', data);
 
       if (response.ok) {
         setDungeonResult(data);

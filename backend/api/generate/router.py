@@ -90,19 +90,45 @@ class GenerateStructuredDungeon(Resource):
 
             # Parse user guidelines into structured format
             guidelines = parse_user_guidelines(dungeon_request.guidelines)
+            print(
+                f"DEBUG: Initial guidelines: room_count={guidelines.room_count}, layout_type={guidelines.layout_type}",
+                flush=True,
+            )
 
             # Create generation options
             options = GenerationOptions()
             if dungeon_request.options:
-                # Apply any custom options
+                print(f"DEBUG: Applying options: {dungeon_request.options}", flush=True)
+                # Apply any custom options to guidelines
                 for key, value in dungeon_request.options.items():
-                    if hasattr(options, key):
+                    if hasattr(guidelines, key):
+                        print(f"DEBUG: Setting guidelines.{key} = {value}", flush=True)
+                        setattr(guidelines, key, value)
+                    elif hasattr(options, key):
+                        print(f"DEBUG: Setting options.{key} = {value}", flush=True)
                         setattr(options, key, value)
 
+            print(
+                f"DEBUG: Final guidelines: room_count={guidelines.room_count}, layout_type={guidelines.layout_type}",
+                flush=True,
+            )
+
             # Generate structured dungeon using business logic
+            print(
+                f"DEBUG: About to call generator with guidelines: room_count={guidelines.room_count}, layout_type={guidelines.layout_type}",
+                flush=True,
+            )
             result = dungeon_generator.generate_dungeon(guidelines, options)
+            print(
+                f"DEBUG: Generator returned guidelines: room_count={result.guidelines.room_count}, layout_type={result.guidelines.layout_type}",
+                flush=True,
+            )
 
             # Convert result to dict format for JSON response
+            print(
+                f"DEBUG: Response guidelines: room_count={result.guidelines.room_count}, layout_type={result.guidelines.layout_type}",
+                flush=True,
+            )
             response_data = {
                 "dungeon": self._dungeon_to_dict(result.dungeon),
                 "guidelines": {
@@ -191,104 +217,6 @@ class GeneratorInfo(Resource):
             return info, 200
         except Exception as e:
             return ErrorResponse(error=f"Failed to get info: {str(e)}").dict(), 500
-
-
-# Legacy route handlers for backward compatibility
-@generate_bp.route("/dungeon", methods=["POST"])
-@simple_trace("generate_structured_dungeon")
-def generate_structured_dungeon_legacy():
-    """Generate a structured dungeon based on user guidelines (legacy endpoint)."""
-    try:
-        # Validate request data
-        data = request.get_json()
-        if not data:
-            return jsonify(ErrorResponse(error="No JSON data provided").dict()), 400
-
-        # Validate request using Pydantic model
-        try:
-            dungeon_request = DungeonGenerateRequest(**data)
-        except Exception as e:
-            return (
-                jsonify(ErrorResponse(error=f"Invalid request: {str(e)}").dict()),
-                400,
-            )
-
-        # Parse user guidelines into structured format
-        guidelines = parse_user_guidelines(dungeon_request.guidelines)
-
-        # Create generation options
-        options = GenerationOptions()
-        if dungeon_request.options:
-            # Apply any custom options
-            for key, value in dungeon_request.options.items():
-                if hasattr(options, key):
-                    setattr(options, key, value)
-
-        # Generate structured dungeon using business logic
-        result = dungeon_generator.generate_dungeon(guidelines, options)
-
-        # Convert result to dict format for JSON response
-        response_data = {
-            "dungeon": {
-                "rooms": [
-                    {
-                        "id": room.id,
-                        "name": room.name,
-                        "description": room.description,
-                        "anchor": (
-                            {"x": room.anchor.x, "y": room.anchor.y}
-                            if room.anchor
-                            else None
-                        ),
-                        "width": room.width,
-                        "height": room.height,
-                        "shape": room.shape.value,
-                    }
-                    for room in result.dungeon.rooms
-                ],
-                "connections": [
-                    {
-                        "room_a_id": conn.room_a_id,
-                        "room_b_id": conn.room_b_id,
-                        "connection_type": conn.connection_type,
-                        "description": conn.description,
-                    }
-                    for conn in result.dungeon.connections
-                ],
-                "metadata": result.dungeon.metadata,
-            },
-            "guidelines": {
-                "theme": result.guidelines.theme,
-                "atmosphere": result.guidelines.atmosphere,
-                "difficulty": result.guidelines.difficulty,
-                "room_count": result.guidelines.room_count,
-                "layout_type": result.guidelines.layout_type,
-                "special_requirements": result.guidelines.special_requirements,
-            },
-            "options": {
-                "include_contents": result.options.include_contents,
-                "include_atmosphere": result.options.include_atmosphere,
-                "include_challenges": result.options.include_challenges,
-                "include_treasures": result.options.include_treasures,
-                "llm_model": result.options.llm_model,
-            },
-            "generation_time": result.generation_time.isoformat(),
-            "status": result.status,
-            "errors": result.errors,
-        }
-
-        # Validate response using Pydantic model
-        response = DungeonGenerateResponse(**response_data)
-
-        return jsonify(response.dict()), 200
-
-    except ValueError as e:
-        return jsonify(ErrorResponse(error=str(e)).dict()), 400
-    except Exception as e:
-        return (
-            jsonify(ErrorResponse(error=f"Generation failed: {str(e)}").dict()),
-            500,
-        )
 
 
 @generate_bp.route("/info", methods=["GET"])

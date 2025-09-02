@@ -67,11 +67,19 @@ class CanvasViewport:
         min_y = min(room.anchor.y for room in rooms if room.anchor)
         max_y = max(room.anchor.y + room.height for room in rooms if room.anchor)
 
+        # Calculate viewport dimensions
+        viewport_width = max_x - min_x + 2.0 * margin
+        viewport_height = max_y - min_y + 2.0 * margin
+
+        # Center the viewport around (0,0) for better frontend centering
+        half_width = viewport_width / 2.0
+        half_height = viewport_height / 2.0
+
         return cls(
-            min_x=min_x - margin,
-            min_y=min_y - margin,
-            max_x=max_x + margin,
-            max_y=max_y + margin,
+            min_x=-half_width,
+            min_y=-half_height,
+            max_x=half_width,
+            max_y=half_height,
             margin=margin,
         )
 
@@ -155,9 +163,28 @@ class DungeonGuidelines:
     theme: str
     atmosphere: str
     difficulty: str = "medium"
-    room_count: int = 5
+    room_count: int = 10
     layout_type: str = "line_graph"
     special_requirements: list[str] = field(default_factory=list)
+
+    room_size_distribution: dict[str, float] = field(
+        default_factory=lambda: {
+            "tiny": 0.1,
+            "small": 0.35,
+            "medium": 0.45,
+            "large": 0.15,
+            "huge": 0.05,
+        }
+    )
+
+    hallway_type_distribution: dict[str, float] = field(
+        default_factory=lambda: {
+            "narrow_passage": 0.2,
+            "standard_door": 0.5,
+            "wide_corridor": 0.2,
+            "secret_tunnel": 0.1,
+        }
+    )
 
 
 @dataclass

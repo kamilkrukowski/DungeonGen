@@ -31,6 +31,7 @@ def parse_user_guidelines(user_input: str) -> DungeonGuidelines:
         atmosphere=atmosphere,
         difficulty=difficulty,
         room_count=room_count,
+        layout_type="line_graph",  # Default, will be overridden by options
         special_requirements=special_requirements,
     )
 

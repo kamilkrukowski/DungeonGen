@@ -11,7 +11,7 @@ from models.dungeon import (
 )
 from utils import simple_trace
 
-from .generators import LineGraphLayoutGenerator, LLMContentGenerator, PostProcessor
+from .generators import LLMContentGenerator, PoissonDiscLayoutGenerator, PostProcessor
 
 
 class DungeonGenerator:
@@ -19,7 +19,7 @@ class DungeonGenerator:
 
     def __init__(self):
         """Initialize the dungeon generator with all components."""
-        self.layout_generator = LineGraphLayoutGenerator()
+        self.layout_generator = PoissonDiscLayoutGenerator()
         self.content_generator = LLMContentGenerator()
         self.post_processor = PostProcessor()
 

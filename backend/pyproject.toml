@@ -20,6 +20,8 @@ dependencies = [
     "pydantic>=2.0.0",
     "deprecated>=1.2.13",
     "json-repair>=0.25.0",
+    "scipy>=1.16.1",
+    "networkx>=3.5",
 ]
 requires-python = ">=3.11"
 
