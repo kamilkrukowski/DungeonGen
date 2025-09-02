@@ -57,30 +57,57 @@ const DungeonGrid = ({
     }
   }, []);
 
-  // Calculate pan boundaries based on dungeon viewport
+  // Calculate pan boundaries based on actual dungeon bounds and canvas size
   const getPanBoundaries = useCallback(() => {
-    if (!dungeonData || !dungeonData.dungeon || !dungeonData.dungeon.viewport) {
+    if (!dungeonData || !dungeonData.dungeon || !dungeonData.dungeon.rooms || dungeonData.dungeon.rooms.length === 0) {
       return { minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 };
     }
 
-    const viewport = dungeonData.dungeon.viewport;
+    // Find the actual bounding box of all rooms
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+    dungeonData.dungeon.rooms.forEach(room => {
+      if (room.anchor) {
+        minX = Math.min(minX, room.anchor.x);
+        maxX = Math.max(maxX, room.anchor.x + room.width);
+        minY = Math.min(minY, room.anchor.y);
+        maxY = Math.max(maxY, room.anchor.y + room.height);
+      }
+    });
+
+    if (minX === Infinity) {
+      return { minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 };
+    }
+
     const actualScale = baseScale * scale;
 
-    // Calculate dungeon size in screen coordinates
-    const dungeonWidth = viewport.width * GRID_SIZE * actualScale;
-    const dungeonHeight = viewport.height * GRID_SIZE * actualScale;
+    // Calculate dungeon bounds in screen coordinates
+    const dungeonScreenMinX = minX * GRID_SIZE * actualScale;
+    const dungeonScreenMaxX = maxX * GRID_SIZE * actualScale;
+    const dungeonScreenMinY = minY * GRID_SIZE * actualScale;
+    const dungeonScreenMaxY = maxY * GRID_SIZE * actualScale;
 
-    // Use the larger dimension divided by 2 for both axes
-    const largerDimension = Math.max(dungeonWidth, dungeonHeight);
-    const margin = largerDimension / 2.0;
+    // Calculate boundaries relative to the dungeon's centered position
+    // The dungeon should be able to move with comfortable margins around its centered position
+    const margin = Math.max(actualWidth, actualHeight) * 0.3; // 30% margin for comfortable panning
 
-    const minX = -margin;
-    const maxX = margin;
-    const minY = -margin;
-    const maxY = margin;
+    // Calculate the dungeon's centered position (this is where position.x and position.y should be when centered)
+    const centeredPositionX = actualWidth / 2 - ((minX + maxX) / 2) * GRID_SIZE * actualScale;
+    const centeredPositionY = actualHeight / 2 - ((minY + maxY) / 2) * GRID_SIZE * actualScale;
 
-    return { minX, maxX, minY, maxY };
-  }, [dungeonData, baseScale, scale]);
+    // Allow panning around the centered position with margins
+    const minPanX = centeredPositionX - margin;  // Can pan left from center
+    const maxPanX = centeredPositionX + margin;  // Can pan right from center
+    const minPanY = centeredPositionY - margin;  // Can pan up from center
+    const maxPanY = centeredPositionY + margin;  // Can pan down from center
+
+    return {
+      minX: minPanX,
+      maxX: maxPanX,
+      minY: minPanY,
+      maxY: maxPanY
+    };
+  }, [dungeonData, baseScale, scale, actualWidth, actualHeight]);
 
   // Clamp position within boundaries
   const clampPosition = useCallback((pos) => {
@@ -91,25 +118,84 @@ const DungeonGrid = ({
     };
   }, [getPanBoundaries]);
 
-  // Handle responsive width
+  // Handle responsive width and container size changes
   useEffect(() => {
-    if (typeof width === 'string' && width.includes('%')) {
-      const updateSize = () => {
-        if (containerRef.current) {
-          const container = containerRef.current;
-          const parentWidth = container.parentElement.clientWidth;
+    const updateSize = () => {
+      if (containerRef.current) {
+        const container = containerRef.current;
+        const parentWidth = container.parentElement.clientWidth;
+
+        if (typeof width === 'string' && width.includes('%')) {
           const percentage = parseInt(width) / 100;
           setActualWidth(parentWidth * percentage);
+        } else if (typeof width === 'number') {
+          setActualWidth(width);
         }
-      };
 
-      updateSize();
-      window.addEventListener('resize', updateSize);
-      return () => window.removeEventListener('resize', updateSize);
-    } else if (typeof width === 'number') {
-      setActualWidth(width);
+        // If we have dungeon data, refit it to the new viewport
+        if (dungeonData && dungeonData.dungeon) {
+          // Use a ref to avoid dependency issues
+          setTimeout(() => {
+            if (dungeonData && dungeonData.dungeon && dungeonData.dungeon.rooms && dungeonData.dungeon.rooms.length > 0) {
+              // Recalculate bounds and center
+              let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+              dungeonData.dungeon.rooms.forEach(room => {
+                if (room.anchor) {
+                  minX = Math.min(minX, room.anchor.x);
+                  maxX = Math.max(maxX, room.anchor.x + room.width);
+                  minY = Math.min(minY, room.anchor.y);
+                  maxY = Math.max(maxY, room.anchor.y + room.height);
+                }
+              });
+
+              if (minX !== Infinity) {
+                const dungeonWidth = maxX - minX;
+                const dungeonHeight = maxY - minY;
+                const padding = 0.15; // Increased padding for better view
+                const scaleX = (actualWidth * (1 - padding)) / (dungeonWidth * GRID_SIZE);
+                const scaleY = (actualHeight * (1 - padding)) / (dungeonHeight * GRID_SIZE);
+                const newBaseScale = Math.min(scaleX, scaleY, 2);
+
+                // Center the dungeon on the canvas
+                const dungeonCenterX = (minX + maxX) / 2;
+                const dungeonCenterY = (minY + maxY) / 2;
+
+                // Calculate position so dungeon center appears at canvas center
+                const newPosition = {
+                  x: actualWidth / 2 - (dungeonCenterX * GRID_SIZE * newBaseScale),
+                  y: actualHeight / 2 - (dungeonCenterY * GRID_SIZE * newBaseScale)
+                };
+
+                setBaseScale(newBaseScale);
+                setScale(1);
+                setPosition(newPosition);
+              }
+            }
+          }, 50);
+        }
+      }
+    };
+
+    updateSize();
+
+    // Use ResizeObserver for more reliable size detection
+    let resizeObserver;
+    if (containerRef.current) {
+      resizeObserver = new ResizeObserver(updateSize);
+      resizeObserver.observe(containerRef.current.parentElement);
     }
-  }, [width]);
+
+    // Also listen for window resize as fallback
+    window.addEventListener('resize', updateSize);
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', updateSize);
+    };
+  }, [width, dungeonData, actualWidth, actualHeight]);
 
   // Calculate grid bounds based on dungeon viewport
   useEffect(() => {
@@ -481,42 +567,87 @@ const DungeonGrid = ({
   };
 
   const handleResetView = () => {
-    fitDungeonToViewport();
+    if (dungeonData && dungeonData.dungeon && dungeonData.dungeon.rooms && dungeonData.dungeon.rooms.length > 0) {
+      // Recalculate bounds and center
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+      dungeonData.dungeon.rooms.forEach(room => {
+        if (room.anchor) {
+          minX = Math.min(minX, room.anchor.x);
+          maxX = Math.max(maxX, room.anchor.x + room.width);
+          minY = Math.min(minY, room.anchor.y);
+          maxY = Math.max(maxY, room.anchor.y + room.height);
+        }
+      });
+
+      if (minX !== Infinity) {
+        const dungeonWidth = maxX - minX;
+        const dungeonHeight = maxY - minY;
+        const padding = 0.15; // Increased padding for better view
+        const scaleX = (actualWidth * (1 - padding)) / (dungeonWidth * GRID_SIZE);
+        const scaleY = (actualHeight * (1 - padding)) / (dungeonHeight * GRID_SIZE);
+        const newBaseScale = Math.min(scaleX, scaleY, 2);
+
+        // Center the dungeon on the canvas
+        const dungeonCenterX = (minX + maxX) / 2;
+        const dungeonCenterY = (minY + maxY) / 2;
+
+        // Calculate position so dungeon center appears at canvas center
+        const newPosition = {
+          x: actualWidth / 2 - (dungeonCenterX * GRID_SIZE * newBaseScale),
+          y: actualHeight / 2 - (dungeonCenterY * GRID_SIZE * newBaseScale)
+        };
+
+        setBaseScale(newBaseScale);
+        setScale(1);
+        setPosition(newPosition);
+      }
+    }
   };
 
-  // Auto-fit dungeon to viewport
-  const fitDungeonToViewport = useCallback(() => {
-    if (!dungeonData || !dungeonData.dungeon || !dungeonData.dungeon.viewport) return;
 
-    const viewport = dungeonData.dungeon.viewport;
-    const viewportWidth = viewport.width;
-    const viewportHeight = viewport.height;
-
-    // Calculate scale to fit the viewport in the canvas
-    const scaleX = (actualWidth * 0.8) / (viewportWidth * GRID_SIZE);
-    const scaleY = (actualHeight * 0.8) / (viewportHeight * GRID_SIZE);
-    const newBaseScale = Math.min(scaleX, scaleY, 2); // Cap at 2x zoom
-
-    // Center the dungeon on the canvas by offsetting the position
-    // This makes clamping much simpler since the dungeon is at (0,0) relative to canvas center
-    const newPosition = {
-      x: actualWidth / 2 - (viewportWidth * GRID_SIZE * newBaseScale) / 2,
-      y: actualHeight / 2 - (viewportHeight * GRID_SIZE * newBaseScale) / 2
-    };
-
-    setBaseScale(newBaseScale);
-    setScale(1); // Reset to 1.0 (which now represents the fit-to-viewport scale)
-    setPosition(newPosition);
-  }, [dungeonData, actualWidth, actualHeight]);
 
   // Auto-fit when dungeon data changes (only once)
   useEffect(() => {
-    if (dungeonData && dungeonData.dungeon && dungeonData.dungeon.viewport) {
+    if (dungeonData && dungeonData.dungeon && dungeonData.dungeon.rooms && dungeonData.dungeon.rooms.length > 0) {
       // Small delay to ensure canvas is ready
-      const timer = setTimeout(fitDungeonToViewport, 100);
+      const timer = setTimeout(() => {
+        // Recalculate bounds and center
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+        dungeonData.dungeon.rooms.forEach(room => {
+          if (room.anchor) {
+            minX = Math.min(minX, room.anchor.x);
+            maxX = Math.max(maxX, room.anchor.x + room.width);
+            minY = Math.min(minY, room.anchor.y);
+            maxY = Math.max(maxY, room.anchor.y + room.height);
+          }
+        });
+
+        if (minX !== Infinity) {
+          const dungeonWidth = maxX - minX;
+          const dungeonHeight = maxY - minY;
+          const padding = 0.1;
+          const scaleX = (actualWidth * (1 - padding)) / (dungeonWidth * GRID_SIZE);
+          const scaleY = (actualHeight * (1 - padding)) / (dungeonHeight * GRID_SIZE);
+          const newBaseScale = Math.min(scaleX, scaleY, 2);
+
+          const dungeonCenterX = (minX + maxX) / 2;
+          const dungeonCenterY = (minY + maxY) / 2;
+
+          const newPosition = {
+            x: actualWidth / 2 - (dungeonCenterX * GRID_SIZE * newBaseScale),
+            y: actualHeight / 2 - (dungeonCenterY * GRID_SIZE * newBaseScale)
+          };
+
+          setBaseScale(newBaseScale);
+          setScale(1);
+          setPosition(newPosition);
+        }
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [dungeonData?.dungeon?.viewport]); // Only depend on viewport changes, not the function
+  }, [dungeonData?.dungeon?.rooms, actualWidth, actualHeight]);
 
   return (
     <Box ref={containerRef} sx={{ position: 'relative', width: actualWidth, height }}>
@@ -525,7 +656,7 @@ const DungeonGrid = ({
         position: 'absolute',
         top: 10,
         right: 10,
-        zIndex: 1000,
+        zIndex: 100, // Lower z-index so settings panel can overlap
         display: 'flex',
         gap: 1,
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -554,7 +685,7 @@ const DungeonGrid = ({
         position: 'absolute',
         top: 10,
         left: 10,
-        zIndex: 1000,
+        zIndex: 100, // Lower z-index so settings panel can overlap
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
         borderRadius: 1,
         padding: 1,
