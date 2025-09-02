@@ -46,31 +46,23 @@ class DungeonGenerator:
             # Step 1: Generate basic layout
             layout = self.layout_generator.generate_layout(guidelines)
 
-            # Step 2: Generate room dimensions using LLM
-            dimension_data = self.content_generator.generate_room_dimensions(
-                layout, guidelines, options
-            )
-
-            # Step 3: Apply dimensions to rooms
-            layout = self._apply_dimensions_to_layout(layout, dimension_data)
-
-            # Step 4: Generate room contents using LLM
+            # Step 2: Generate room contents using LLM (content flags are set during layout generation)
             if options.include_contents:
                 room_contents = self.content_generator.generate_room_contents(
                     layout, guidelines, options
                 )
                 layout = self._apply_contents_to_layout(layout, room_contents)
 
-            # Step 5: Post-processing
+            # Step 3: Post-processing
             layout = self.post_processor.process(layout, guidelines, options)
 
-            # Step 6: Generate corridors (after post-processing to ensure final room positions)
+            # Step 4: Generate corridors (after post-processing to ensure final room positions)
             if hasattr(self.layout_generator, "generate_corridors_for_layout"):
                 layout = self.layout_generator.generate_corridors_for_layout(
                     layout, guidelines
                 )
 
-            # Step 7: Validation
+            # Step 5: Validation
             validation_errors = self.post_processor.validate_layout(layout)
             errors.extend(validation_errors)
 
@@ -100,30 +92,6 @@ class DungeonGenerator:
         """
         return self.layout_generator.generate_layout(guidelines)
 
-    def generate_room_dimensions(
-        self,
-        layout: DungeonLayout,
-        guidelines: DungeonGuidelines,
-        options: GenerationOptions | None = None,
-    ) -> dict:
-        """
-        Generate room dimensions for an existing layout.
-
-        Args:
-            layout: Existing dungeon layout
-            guidelines: Generation guidelines
-            options: Optional generation options
-
-        Returns:
-            Dictionary mapping room_id to dimension data
-        """
-        if options is None:
-            options = GenerationOptions()
-
-        return self.content_generator.generate_room_dimensions(
-            layout, guidelines, options
-        )
-
     def generate_room_contents(
         self,
         layout: DungeonLayout,
@@ -152,48 +120,37 @@ class DungeonGenerator:
         """Check if all components are properly configured."""
         return self.content_generator.is_configured()
 
-    def _apply_dimensions_to_layout(
-        self, layout: DungeonLayout, dimension_data: dict
+    def _apply_contents_to_layout(
+        self, layout: DungeonLayout, room_contents: list
     ) -> DungeonLayout:
-        """Apply LLM-generated dimensions to the layout."""
-        updated_rooms = []
+        """Apply LLM-generated contents to the layout."""
+        # Create content map for metadata
+        content_map = {content.room_id: content for content in room_contents}
 
+        # Update room objects with new names and descriptions
+        updated_rooms = []
         for room in layout.rooms:
-            if room.id in dimension_data:
-                data = dimension_data[room.id]
+            if room.id in content_map:
+                content = content_map[room.id]
                 updated_room = Room(
                     id=room.id,
-                    name=data.get("name", room.name),
-                    description=data.get("description", room.description),
+                    name=content.name,  # Use the LLM-generated name
+                    description=content.description,  # Use the LLM-generated description
                     anchor=room.anchor,
-                    width=data.get("width", room.width),
-                    height=data.get("height", room.height),
+                    width=room.width,
+                    height=room.height,
                     shape=room.shape,
-                    has_traps=data.get("has_traps", False),
-                    has_treasure=data.get("has_treasure", False),
-                    has_monsters=data.get("has_monsters", False),
+                    has_traps=content.has_traps,
+                    has_treasure=content.has_treasure,
+                    has_monsters=content.has_monsters,
                 )
                 updated_rooms.append(updated_room)
             else:
                 updated_rooms.append(room)
 
-        return DungeonLayout(
-            rooms=updated_rooms,
-            connections=layout.connections,
-            metadata=layout.metadata,
-        )
-
-    def _apply_contents_to_layout(
-        self, layout: DungeonLayout, room_contents: list
-    ) -> DungeonLayout:
-        """Apply LLM-generated contents to the layout."""
-        # For now, we'll store contents in metadata
-        # In the future, we might want to extend the Room class
-        content_map = {content.room_id: content for content in room_contents}
-
         metadata = layout.metadata.copy()
         metadata["room_contents"] = content_map
 
         return DungeonLayout(
-            rooms=layout.rooms, connections=layout.connections, metadata=metadata
+            rooms=updated_rooms, connections=layout.connections, metadata=metadata
         )

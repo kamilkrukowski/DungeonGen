@@ -33,6 +33,7 @@ def parse_user_guidelines(user_input: str) -> DungeonGuidelines:
         room_count=room_count,
         layout_type="line_graph",  # Default, will be overridden by options
         special_requirements=special_requirements,
+        prompt=user_input,  # Preserve the original user input as a prompt
     )
 
 

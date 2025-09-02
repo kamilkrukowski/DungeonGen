@@ -190,6 +190,7 @@ class DungeonGuidelines:
     room_count: int = 10
     layout_type: str = "line_graph"
     special_requirements: list[str] = field(default_factory=list)
+    prompt: str = ""  # Custom user prompt for dungeon generation
 
     room_size_distribution: dict[str, float] = field(
         default_factory=lambda: {

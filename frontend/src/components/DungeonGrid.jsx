@@ -400,7 +400,7 @@ const DungeonGrid = ({
         ctx.shadowOffsetX = 1;
         ctx.shadowOffsetY = 1;
 
-        ctx.fillText(room.name, screenPos.x + 5, screenPos.y + 15 * actualScale);
+        ctx.fillText(room.name || `Room ${room.id}`, screenPos.x + 5, screenPos.y + 15 * actualScale);
 
         // Reset shadow
         ctx.shadowColor = 'transparent';
@@ -713,7 +713,7 @@ const DungeonGrid = ({
         )}
         {hoveredRoom && (
           <Typography variant="caption" display="block">
-            Hover: {hoveredRoom.name}
+                            Hover: {hoveredRoom.name || `Room ${hoveredRoom.id}`}
           </Typography>
         )}
       </Box>

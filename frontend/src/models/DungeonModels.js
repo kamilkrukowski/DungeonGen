@@ -246,7 +246,7 @@ export class CorridorPath {
 }
 
 export class DungeonGuidelines {
-  constructor(theme, atmosphere, difficulty = 'medium', roomCount = 5, layoutType = 'line_graph', specialRequirements = [], percentageRoomsTrapped = 0.15, percentageRoomsWithTreasure = 0.20, percentageRoomsWithMonsters = 0.45) {
+  constructor(theme, atmosphere, difficulty = 'medium', roomCount = 5, layoutType = 'line_graph', specialRequirements = [], percentageRoomsTrapped = 0.15, percentageRoomsWithTreasure = 0.20, percentageRoomsWithMonsters = 0.45, prompt = '') {
     this.theme = theme;
     this.atmosphere = atmosphere;
     this.difficulty = difficulty;
@@ -256,6 +256,7 @@ export class DungeonGuidelines {
     this.percentageRoomsTrapped = percentageRoomsTrapped;
     this.percentageRoomsWithTreasure = percentageRoomsWithTreasure;
     this.percentageRoomsWithMonsters = percentageRoomsWithMonsters;
+    this.prompt = prompt;
   }
 
   static fromObject(obj) {
@@ -268,7 +269,8 @@ export class DungeonGuidelines {
       obj.special_requirements || [],
       obj.percentage_rooms_trapped || 0.15,
       obj.percentage_rooms_with_treasure || 0.20,
-      obj.percentage_rooms_with_monsters || 0.45
+      obj.percentage_rooms_with_monsters || 0.45,
+      obj.prompt || ''
     );
   }
 }

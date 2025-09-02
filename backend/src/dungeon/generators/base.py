@@ -3,7 +3,6 @@ Abstract base classes for dungeon generation components.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from models.dungeon import (
     DungeonGuidelines,
@@ -37,26 +36,6 @@ class BaseLayoutGenerator(ABC):
 
 class BaseContentGenerator(ABC):
     """Abstract base class for room content generators."""
-
-    @abstractmethod
-    def generate_room_dimensions(
-        self,
-        layout: DungeonLayout,
-        guidelines: DungeonGuidelines,
-        options: GenerationOptions,
-    ) -> dict[str, dict[str, Any]]:
-        """
-        Generate room dimensions and basic information using LLM.
-
-        Args:
-            layout: Basic dungeon layout
-            guidelines: Generation guidelines
-            options: Generation options
-
-        Returns:
-            Dictionary mapping room_id to dimension data
-        """
-        pass
 
     @abstractmethod
     def generate_room_contents(
