@@ -138,6 +138,9 @@ class GenerateStructuredDungeon(Resource):
                     "room_count": result.guidelines.room_count,
                     "layout_type": result.guidelines.layout_type,
                     "special_requirements": result.guidelines.special_requirements,
+                    "percentage_rooms_trapped": result.guidelines.percentage_rooms_trapped,
+                    "percentage_rooms_with_treasure": result.guidelines.percentage_rooms_with_treasure,
+                    "percentage_rooms_with_monsters": result.guidelines.percentage_rooms_with_monsters,
                 },
                 "options": {
                     "include_contents": result.options.include_contents,

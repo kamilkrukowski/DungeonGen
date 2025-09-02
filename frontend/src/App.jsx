@@ -26,6 +26,9 @@ import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import Tooltip from '@mui/material/Tooltip'
 import IconButton from '@mui/material/IconButton'
+import Collapse from '@mui/material/Collapse'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import './App.css'
 import DungeonGrid from './components/DungeonGrid'
 import { parseDungeonData } from './models/DungeonModels'
@@ -153,9 +156,99 @@ function DungeonContent({
                             <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>
                               Room: {selectedRoom?.name || `Room ${selectedRoomId}`}
                             </Typography>
+
+                            {/* Content Type Flags - Active first, then inactive */}
+                            <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                              {/* Active flags first */}
+                              {roomContent?.hasTraps && (
+                                <Box sx={{
+                                  backgroundColor: '#ff6b6b',
+                                  color: 'white',
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  🚨 TRAPS
+                                </Box>
+                              )}
+                              {roomContent?.hasTreasure && (
+                                <Box sx={{
+                                  backgroundColor: '#ffd93d',
+                                  color: 'black',
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  💎 TREASURE
+                                </Box>
+                              )}
+                              {roomContent?.hasMonsters && (
+                                <Box sx={{
+                                  backgroundColor: '#6bcf7f',
+                                  color: 'white',
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  👹 MONSTERS
+                                </Box>
+                              )}
+
+                              {/* Inactive flags second */}
+                              {!roomContent?.hasTraps && (
+                                <Box sx={{
+                                  backgroundColor: '#e0e0e0',
+                                  color: '#666',
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
+                                  opacity: 0.6
+                                }}>
+                                  🚨 TRAPS
+                                </Box>
+                              )}
+                              {!roomContent?.hasTreasure && (
+                                <Box sx={{
+                                  backgroundColor: '#e0e0e0',
+                                  color: '#666',
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
+                                  opacity: 0.6
+                                }}>
+                                  💎 TREASURE
+                                </Box>
+                              )}
+                              {!roomContent?.hasMonsters && (
+                                <Box sx={{
+                                  backgroundColor: '#e0e0e0',
+                                  color: '#666',
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 'bold',
+                                  opacity: 0.6
+                                }}>
+                                  👹 MONSTERS
+                                </Box>
+                              )}
+                            </Box>
                             <Typography variant="body2" sx={{ mb: 1 }}>
                               <strong>Description:</strong> {selectedRoom?.description || 'No description available'}
                             </Typography>
+
+
                             <Typography variant="body2" sx={{ mb: 1 }}>
                               <strong>Size:</strong> {selectedRoom?.width && selectedRoom?.height ? `${selectedRoom.width} × ${selectedRoom.height}` : 'Unknown'}
                             </Typography>
@@ -167,6 +260,7 @@ function DungeonContent({
                                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                                   <strong>Atmosphere:</strong> {roomContent.atmosphere || 'None specified'}
                                 </Typography>
+
                                 {roomContent.contents && roomContent.contents.length > 0 && (
                                   <Typography variant="body2" sx={{ mb: 0.5 }}>
                                     <strong>Contents:</strong> {roomContent.contents.join(', ')}
@@ -273,6 +367,8 @@ function DungeonSidebar({
   expanded,
   onToggle
 }) {
+  const [contentSettingsExpanded, setContentSettingsExpanded] = useState(true);
+
   return (
     <Box sx={{
       width: expanded ? 300 : 50,
@@ -342,6 +438,92 @@ function DungeonSidebar({
             </Typography>
           </Box>
 
+          {/* Room Content Generation Settings */}
+          <Box sx={{ mb: 3, mt: 4 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                '&:hover': { backgroundColor: '#f5f5f5' },
+                p: 1,
+                borderRadius: 1
+              }}
+              onClick={() => setContentSettingsExpanded(!contentSettingsExpanded)}
+            >
+              <Typography variant="h6" sx={{ color: 'primary.main' }}>
+                Room Content Settings
+              </Typography>
+              {contentSettingsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </Box>
+
+            <Collapse in={contentSettingsExpanded}>
+              {/* Percentage of Rooms with Traps */}
+              <Box sx={{ mb: 3, mt: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                  % Rooms with Traps: {Math.round(settings.percentageRoomsTrapped * 100)}%
+                </Typography>
+                <Slider
+                  value={settings.percentageRoomsTrapped}
+                  onChange={(_, value) => onSettingsChange('percentageRoomsTrapped', value)}
+                  min={0}
+                  max={0.35}
+                  step={0.05}
+                  marks={[
+                    { value: 0, label: '0%' },
+                    { value: 0.15, label: '15%' },
+                    { value: 0.35, label: '35%' }
+                  ]}
+                  valueLabelDisplay="auto"
+                  sx={{ mt: 1 }}
+                />
+              </Box>
+
+              {/* Percentage of Rooms with Treasure */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                  % Rooms with Treasure: {Math.round(settings.percentageRoomsWithTreasure * 100)}%
+                </Typography>
+                <Slider
+                  value={settings.percentageRoomsWithTreasure}
+                  onChange={(_, value) => onSettingsChange('percentageRoomsWithTreasure', value)}
+                  min={0.10}
+                  max={0.20}
+                  step={0.025}
+                  marks={[
+                    { value: 0.10, label: '10%' },
+                    { value: 0.15, label: '15%' },
+                    { value: 0.20, label: '20%' }
+                  ]}
+                  valueLabelDisplay="auto"
+                  sx={{ mt: 1 }}
+                />
+              </Box>
+
+              {/* Percentage of Rooms with Monsters */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                  % Rooms with Monsters: {Math.round(settings.percentageRoomsWithMonsters * 100)}%
+                </Typography>
+                <Slider
+                  value={settings.percentageRoomsWithMonsters}
+                  onChange={(_, value) => onSettingsChange('percentageRoomsWithMonsters', value)}
+                  min={0.25}
+                  max={0.75}
+                  step={0.05}
+                  marks={[
+                    { value: 0.25, label: '25%' },
+                    { value: 0.45, label: '45%' },
+                    { value: 0.75, label: '75%' }
+                  ]}
+                  valueLabelDisplay="auto"
+                  sx={{ mt: 1 }}
+                />
+              </Box>
+            </Collapse>
+          </Box>
+
           {/* Current Settings Display */}
           <Card sx={{ backgroundColor: '#f8f9fa', p: 2, border: '1px solid #e0e0e0' }}>
             <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'primary.main' }}>
@@ -353,6 +535,24 @@ function DungeonSidebar({
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               Layout: Poisson Disc
             </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Traps: {Math.round(settings.percentageRoomsTrapped * 100)}%
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Treasure: {Math.round(settings.percentageRoomsWithTreasure * 100)}%
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Monsters: {Math.round(settings.percentageRoomsWithMonsters * 100)}%
+            </Typography>
+
+            {/* Expected Distribution Info */}
+            <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e0e0e0' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                Expected: ~{Math.round(settings.percentageRoomsTrapped * settings.roomCount)} rooms with traps,
+                ~{Math.round(settings.percentageRoomsWithTreasure * settings.roomCount)} with treasure,
+                ~{Math.round(settings.percentageRoomsWithMonsters * settings.roomCount)} with monsters
+              </Typography>
+            </Box>
           </Card>
         </Box>
       )}
@@ -372,7 +572,10 @@ function DungeonGenerator() {
   const [settingsExpanded, setSettingsExpanded] = useState(true); // Expanded by default
   const [settings, setSettings] = useState({
     roomCount: 10,
-    layoutType: 'poisson_disc'
+    layoutType: 'poisson_disc',
+    percentageRoomsTrapped: 0.15,
+    percentageRoomsWithTreasure: 0.20,
+    percentageRoomsWithMonsters: 0.45
   });
 
   const handleDungeonGenerate = async () => {
@@ -395,7 +598,10 @@ function DungeonGenerator() {
           guidelines: message,
           options: {
             room_count: settings.roomCount,
-            layout_type: settings.layoutType
+            layout_type: settings.layoutType,
+            percentage_rooms_trapped: settings.percentageRoomsTrapped,
+            percentage_rooms_with_treasure: settings.percentageRoomsWithTreasure,
+            percentage_rooms_with_monsters: settings.percentageRoomsWithMonsters
           }
         }),
       });

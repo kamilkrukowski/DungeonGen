@@ -78,7 +78,7 @@ export class CanvasViewport {
 }
 
 export class Room {
-  constructor(id, name, description = null, anchor = null, width = 0, height = 0, shape = 'rectangle') {
+  constructor(id, name, description, anchor, width, height, shape, hasTraps = false, hasTreasure = false, hasMonsters = false) {
     this.id = id;
     this.name = name;
     this.description = description;
@@ -86,6 +86,9 @@ export class Room {
     this.width = width;
     this.height = height;
     this.shape = shape;
+    this.hasTraps = hasTraps;
+    this.hasTreasure = hasTreasure;
+    this.hasMonsters = hasMonsters;
   }
 
   static fromObject(obj) {
@@ -96,7 +99,10 @@ export class Room {
       obj.anchor ? Coordinates.fromObject(obj.anchor) : null,
       obj.width,
       obj.height,
-      obj.shape
+      obj.shape,
+      obj.has_traps || false,
+      obj.has_treasure || false,
+      obj.has_monsters || false
     );
   }
 
@@ -140,7 +146,7 @@ export class Connection {
 }
 
 export class RoomContent {
-  constructor(roomId, name, description, contents = [], atmosphere = '', challenges = [], treasures = []) {
+  constructor(roomId, name, description, contents = [], atmosphere = '', challenges = [], treasures = [], hasTraps = false, hasTreasure = false, hasMonsters = false) {
     this.roomId = roomId;
     this.name = name;
     this.description = description;
@@ -148,6 +154,9 @@ export class RoomContent {
     this.atmosphere = atmosphere;
     this.challenges = challenges;
     this.treasures = treasures;
+    this.hasTraps = hasTraps;
+    this.hasTreasure = hasTreasure;
+    this.hasMonsters = hasMonsters;
   }
 
   static fromObject(obj) {
@@ -158,7 +167,10 @@ export class RoomContent {
       obj.contents || [],
       obj.atmosphere || '',
       obj.challenges || [],
-      obj.treasures || []
+      obj.treasures || [],
+      obj.has_traps || false,
+      obj.has_treasure || false,
+      obj.has_monsters || false
     );
   }
 }
@@ -234,13 +246,16 @@ export class CorridorPath {
 }
 
 export class DungeonGuidelines {
-  constructor(theme, atmosphere, difficulty = 'medium', roomCount = 5, layoutType = 'line_graph', specialRequirements = []) {
+  constructor(theme, atmosphere, difficulty = 'medium', roomCount = 5, layoutType = 'line_graph', specialRequirements = [], percentageRoomsTrapped = 0.15, percentageRoomsWithTreasure = 0.20, percentageRoomsWithMonsters = 0.45) {
     this.theme = theme;
     this.atmosphere = atmosphere;
     this.difficulty = difficulty;
     this.roomCount = roomCount;
     this.layoutType = layoutType;
     this.specialRequirements = specialRequirements;
+    this.percentageRoomsTrapped = percentageRoomsTrapped;
+    this.percentageRoomsWithTreasure = percentageRoomsWithTreasure;
+    this.percentageRoomsWithMonsters = percentageRoomsWithMonsters;
   }
 
   static fromObject(obj) {
@@ -250,7 +265,10 @@ export class DungeonGuidelines {
       obj.difficulty,
       obj.room_count,
       obj.layout_type,
-      obj.special_requirements || []
+      obj.special_requirements || [],
+      obj.percentage_rooms_trapped || 0.15,
+      obj.percentage_rooms_with_treasure || 0.20,
+      obj.percentage_rooms_with_monsters || 0.45
     );
   }
 }

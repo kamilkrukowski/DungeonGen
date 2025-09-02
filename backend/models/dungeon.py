@@ -96,6 +96,11 @@ class Room:
     height: int = 0
     shape: RoomShape = RoomShape.RECTANGLE
 
+    # Content flags determined during dimension generation
+    has_traps: bool = False
+    has_treasure: bool = False
+    has_monsters: bool = False
+
     @property
     def bounds(self) -> tuple[Coordinates, Coordinates]:
         """Returns (top_left, bottom_right) coordinates."""
@@ -139,6 +144,11 @@ class RoomContent:
     atmosphere: str = ""
     challenges: list[str] = field(default_factory=list)
     treasures: list[str] = field(default_factory=list)
+
+    # Content flags indicating what was sampled for this room
+    has_traps: bool = False
+    has_treasure: bool = False
+    has_monsters: bool = False
 
 
 @dataclass
@@ -199,6 +209,11 @@ class DungeonGuidelines:
             "secret_tunnel": 0.1,
         }
     )
+
+    # Room content generation percentages
+    percentage_rooms_trapped: float = 0.15  # 0-35% range
+    percentage_rooms_with_treasure: float = 0.20  # 10-20% range
+    percentage_rooms_with_monsters: float = 0.45  # 25-75% range
 
 
 @dataclass

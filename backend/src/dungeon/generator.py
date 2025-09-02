@@ -169,6 +169,9 @@ class DungeonGenerator:
                     width=data.get("width", room.width),
                     height=data.get("height", room.height),
                     shape=room.shape,
+                    has_traps=data.get("has_traps", False),
+                    has_treasure=data.get("has_treasure", False),
+                    has_monsters=data.get("has_monsters", False),
                 )
                 updated_rooms.append(updated_room)
             else:
