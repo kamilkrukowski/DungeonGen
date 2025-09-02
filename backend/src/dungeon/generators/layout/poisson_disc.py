@@ -103,18 +103,27 @@ class PoissonDiscLayoutGenerator(BaseLayoutAlgorithm):
         spring_layout = SpringLayout(spring_config)
         optimized_rooms = spring_layout.optimize_layout(rooms, hallway_specs)
 
-        # Step 9: Get layout quality metrics
+        # Step 9: Generate corridor paths
+        from ..postprocess import CorridorGenerator
+
+        corridor_generator = CorridorGenerator(seed=random.randint(1, 10000))
+        corridors = corridor_generator.generate_corridors(
+            optimized_rooms, connections, hallway_specs
+        )
+
+        # Step 10: Get layout quality metrics
         quality_metrics = spring_layout.get_layout_quality_metrics(
             optimized_rooms, hallway_specs
         )
         hallway_stats = hallway_sampler.get_hallway_stats(hallway_specs)
 
-        # Step 10: Center the dungeon around (0,0) for better frontend display
+        # Step 11: Center the dungeon around (0,0) for better frontend display
         centered_rooms = self._center_dungeon_rooms(optimized_rooms)
 
         return DungeonLayout(
             rooms=centered_rooms,
             connections=connections,
+            corridors=corridors,  # NEW: include corridor paths
             metadata={
                 "layout_type": "poisson_disc",
                 "room_count": len(centered_rooms),
@@ -134,7 +143,48 @@ class PoissonDiscLayoutGenerator(BaseLayoutAlgorithm):
                 },
                 "quality_metrics": quality_metrics,
                 "hallway_stats": hallway_stats,
+                "corridor_count": len(corridors),  # NEW: add corridor count to metadata
             },
+        )
+
+    def generate_corridors_for_layout(
+        self, layout: "DungeonLayout", guidelines: "DungeonGuidelines"
+    ) -> "DungeonLayout":
+        """
+        Generate corridors for an existing layout (used after post-processing).
+
+        Args:
+            layout: Existing dungeon layout
+            guidelines: Dungeon guidelines
+
+        Returns:
+            Layout with corridors added
+        """
+        # Generate hallway specs for the existing connections
+        from .hallway_sampler import HallwaySampler
+
+        hallway_sampler = HallwaySampler(seed=random.randint(1, 10000))
+        hallway_specs = hallway_sampler.sample_hallways(
+            layout.rooms, layout.connections, guidelines
+        )
+
+        # Generate corridor paths
+        from ..postprocess import CorridorGenerator
+
+        corridor_generator = CorridorGenerator(seed=random.randint(1, 10000))
+        corridors = corridor_generator.generate_corridors(
+            layout.rooms, layout.connections, hallway_specs
+        )
+
+        # Create new layout with corridors
+        from models.dungeon import DungeonLayout
+
+        return DungeonLayout(
+            rooms=layout.rooms,
+            connections=layout.connections,
+            corridors=corridors,
+            metadata=layout.metadata,
+            viewport=layout.viewport,
         )
 
     def _poisson_disc_sampling(

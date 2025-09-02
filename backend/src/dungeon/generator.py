@@ -64,7 +64,13 @@ class DungeonGenerator:
             # Step 5: Post-processing
             layout = self.post_processor.process(layout, guidelines, options)
 
-            # Step 6: Validation
+            # Step 6: Generate corridors (after post-processing to ensure final room positions)
+            if hasattr(self.layout_generator, "generate_corridors_for_layout"):
+                layout = self.layout_generator.generate_corridors_for_layout(
+                    layout, guidelines
+                )
+
+            # Step 7: Validation
             validation_errors = self.post_processor.validate_layout(layout)
             errors.extend(validation_errors)
 

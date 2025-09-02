@@ -147,6 +147,7 @@ class DungeonLayout:
 
     rooms: list[Room] = field(default_factory=list)
     connections: list[Connection] = field(default_factory=list)
+    corridors: list["CorridorPath"] = field(default_factory=list)  # NEW: corridor paths
     metadata: dict[str, Any] = field(default_factory=dict)
     viewport: CanvasViewport | None = None
 
@@ -154,6 +155,19 @@ class DungeonLayout:
         """Calculate viewport after initialization if not provided."""
         if self.viewport is None and self.rooms:
             self.viewport = CanvasViewport.from_rooms(self.rooms)
+
+
+@dataclass
+class CorridorPath:
+    """Represents the actual path of a corridor between rooms."""
+
+    connection_id: str  # References the Connection
+    room_a_id: str
+    room_b_id: str
+    path_points: list[Coordinates]  # List of grid coordinates forming the path
+    width: int
+    hallway_type: str
+    description: str | None = None
 
 
 @dataclass

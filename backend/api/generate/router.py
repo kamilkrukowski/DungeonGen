@@ -189,6 +189,25 @@ class GenerateStructuredDungeon(Resource):
                 }
                 for conn in dungeon_layout.connections
             ],
+            "corridors": (
+                [
+                    {
+                        "connection_id": corridor.connection_id,
+                        "room_a_id": corridor.room_a_id,
+                        "room_b_id": corridor.room_b_id,
+                        "path_points": [
+                            {"x": point.x, "y": point.y}
+                            for point in corridor.path_points
+                        ],
+                        "width": corridor.width,
+                        "hallway_type": corridor.hallway_type,
+                        "description": corridor.description,
+                    }
+                    for corridor in dungeon_layout.corridors
+                ]
+                if hasattr(dungeon_layout, "corridors") and dungeon_layout.corridors
+                else []
+            ),
             "metadata": dungeon_layout.metadata,
             "viewport": (
                 {

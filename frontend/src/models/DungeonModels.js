@@ -164,9 +164,10 @@ export class RoomContent {
 }
 
 export class DungeonLayout {
-  constructor(rooms = [], connections = [], metadata = {}, viewport = null) {
+  constructor(rooms = [], connections = [], corridors = [], metadata = {}, viewport = null) {
     this.rooms = rooms;
     this.connections = connections;
+    this.corridors = corridors;  // NEW: corridor paths
     this.metadata = metadata;
     this.viewport = viewport;
   }
@@ -174,6 +175,7 @@ export class DungeonLayout {
   static fromObject(obj) {
     const rooms = (obj.rooms || []).map(room => Room.fromObject(room));
     const connections = (obj.connections || []).map(conn => Connection.fromObject(conn));
+    const corridors = (obj.corridors || []).map(corridor => CorridorPath.fromObject(corridor));  // NEW: parse corridors
     const viewport = CanvasViewport.fromObject(obj.viewport) || CanvasViewport.fromRooms(rooms);
 
     // Parse room contents from metadata if available
@@ -185,11 +187,49 @@ export class DungeonLayout {
     }
 
     const metadata = { ...obj.metadata, roomContents };
-    return new DungeonLayout(rooms, connections, metadata, viewport);
+    return new DungeonLayout(rooms, connections, corridors, metadata, viewport);  // NEW: include corridors
   }
 
   getRoomContent(roomId) {
     return this.metadata.roomContents?.[roomId] || null;
+  }
+}
+
+export class CorridorPath {
+  constructor(connectionId, roomAId, roomBId, pathPoints, width, hallwayType, description = null) {
+    this.connectionId = connectionId;
+    this.roomAId = roomAId;
+    this.roomBId = roomBId;
+    this.pathPoints = pathPoints;
+    this.width = width;
+    this.hallwayType = hallwayType;
+    this.description = description;
+  }
+
+  static fromObject(obj) {
+    console.log('Parsing corridor object:', obj);
+
+    if (!obj.path_points || !Array.isArray(obj.path_points)) {
+      console.error('Invalid path_points in corridor:', obj);
+      throw new Error('Invalid path_points in corridor data');
+    }
+
+    const pathPoints = obj.path_points.map(p => {
+      console.log('Parsing path point:', p);
+      return Coordinates.fromObject(p);
+    });
+
+    console.log('Parsed path points:', pathPoints);
+
+    return new CorridorPath(
+      obj.connection_id,
+      obj.room_a_id,
+      obj.room_b_id,
+      pathPoints,
+      obj.width,
+      obj.hallway_type,
+      obj.description
+    );
   }
 }
 

@@ -36,6 +36,27 @@ const DungeonGrid = ({
   const [hoveredRoom, setHoveredRoom] = useState(null);
   const [baseScale, setBaseScale] = useState(1); // The scale that represents "fit to viewport"
 
+  // Helper method to get corridor styling based on hallway type
+  const getCorridorStyle = useCallback((hallwayType) => {
+    console.log('Getting corridor style for type:', hallwayType);
+
+    switch (hallwayType) {
+      case 'narrow_passage':
+        return { color: '#8B4513', borderColor: '#654321' }; // Brown
+      case 'standard_door':
+        return { color: '#696969', borderColor: '#404040' }; // Dark gray
+      case 'wide_corridor':
+        return { color: '#4682B4', borderColor: '#2F4F4F' }; // Steel blue
+      case 'grand_hallway':
+        return { color: '#DAA520', borderColor: '#B8860B' }; // Goldenrod
+      case 'secret_tunnel':
+        return { color: '#2F4F4F', borderColor: '#1C1C1C' }; // Dark slate
+      default:
+        console.warn('Unknown hallway type:', hallwayType, 'using default style');
+        return { color: '#696969', borderColor: '#404040' }; // Default gray
+    }
+  }, []);
+
   // Calculate pan boundaries based on dungeon viewport
   const getPanBoundaries = useCallback(() => {
     if (!dungeonData || !dungeonData.dungeon || !dungeonData.dungeon.viewport) {
@@ -172,6 +193,9 @@ const DungeonGrid = ({
     canvas.width = actualWidth;
     canvas.height = actualHeight;
 
+    // Calculate actual scale for consistent scaling across all rendering
+    const actualScale = baseScale * scale;
+
     // Draw grid lines
     ctx.strokeStyle = GRID_COLOR;
     ctx.lineWidth = 1;
@@ -199,13 +223,68 @@ const DungeonGrid = ({
       ctx.stroke();
     }
 
+    // Draw corridors first (behind rooms)
+    if (dungeonData && dungeonData.dungeon && dungeonData.dungeon.corridors) {
+      console.log('Drawing corridors:', dungeonData.dungeon.corridors);
+
+      dungeonData.dungeon.corridors.forEach((corridor, index) => {
+        console.log(`Corridor ${index}:`, corridor);
+
+        // Defensive checks
+        if (!corridor || !corridor.pathPoints || !Array.isArray(corridor.pathPoints)) {
+          console.warn(`Invalid corridor data for corridor ${index}:`, corridor);
+          return;
+        }
+
+        if (corridor.pathPoints.length < 2) {
+          console.warn(`Corridor ${index} has insufficient path points:`, corridor.pathPoints);
+          return;
+        }
+
+        // Validate path points
+        for (let i = 0; i < corridor.pathPoints.length; i++) {
+          const point = corridor.pathPoints[i];
+          if (!point || typeof point.x !== 'number' || typeof point.y !== 'number') {
+            console.warn(`Invalid path point ${i} in corridor ${index}:`, point);
+            return;
+          }
+        }
+
+        // Set corridor style based on hallway type
+        const corridorStyle = getCorridorStyle(corridor.hallwayType);
+
+        ctx.strokeStyle = corridorStyle.color;
+        ctx.lineWidth = (corridor.width || 1) * 2 * actualScale; // Scale width with zoom, default to 1
+        ctx.globalAlpha = 0.7;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Draw corridor path
+        ctx.beginPath();
+        const firstPoint = gridToScreen(corridor.pathPoints[0].x, corridor.pathPoints[0].y);
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+
+        for (let i = 1; i < corridor.pathPoints.length; i++) {
+          const point = gridToScreen(corridor.pathPoints[i].x, corridor.pathPoints[i].y);
+          ctx.lineTo(point.x, point.y);
+        }
+
+        ctx.stroke();
+
+        // Draw corridor border for better visibility
+        ctx.strokeStyle = corridorStyle.borderColor;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.9;
+        ctx.stroke();
+      });
+    }
+
     // Draw rooms
     if (dungeonData && dungeonData.dungeon) {
       dungeonData.dungeon.rooms.forEach((room, index) => {
         if (!room.anchor) return;
 
         const screenPos = gridToScreen(room.anchor.x, room.anchor.y);
-        const actualScale = baseScale * scale;
         const roomWidth = room.width * GRID_SIZE * actualScale;
         const roomHeight = room.height * GRID_SIZE * actualScale;
         const colorIndex = index % ROOM_COLORS.length;
@@ -244,7 +323,7 @@ const DungeonGrid = ({
         ctx.shadowOffsetY = 0;
       });
     }
-  }, [dungeonData, gridBounds, gridToScreen, selectedRoomId, hoveredRoom, scale, baseScale, actualWidth, actualHeight]);
+  }, [dungeonData, gridBounds, gridToScreen, selectedRoomId, hoveredRoom, scale, baseScale, actualWidth, actualHeight, getCorridorStyle]);
 
   // Redraw canvas when dependencies change
   useEffect(() => {
@@ -489,6 +568,11 @@ const DungeonGrid = ({
         {dungeonData && dungeonData.dungeon && (
           <Typography variant="caption" display="block">
             Rooms: {dungeonData.dungeon.rooms.length}
+          </Typography>
+        )}
+        {dungeonData && dungeonData.dungeon && dungeonData.dungeon.corridors && (
+          <Typography variant="caption" display="block">
+            Corridors: {dungeonData.dungeon.corridors.length}
           </Typography>
         )}
         {dungeonData && dungeonData.dungeon && dungeonData.dungeon.viewport && (
