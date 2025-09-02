@@ -6,8 +6,6 @@ from flask_cors import CORS
 from flask_restx import Resource
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
-from api.chat.router import chat_bp, chat_ns
-
 # Import API documentation
 from api.docs import create_api_docs
 
@@ -35,11 +33,9 @@ api, models = create_api_docs(app)
 
 # Register blueprints
 app.register_blueprint(generate_bp)
-app.register_blueprint(chat_bp)
 
 # Register namespaces
 api.add_namespace(generate_ns, path="/api/generate")
-api.add_namespace(chat_ns, path="/api/chat")
 
 # Create namespaces for better organization
 health_ns = api.namespace("health", description="Health check operations")
@@ -66,7 +62,6 @@ class Home(Resource):
             "status": "running",
             "version": "1.0.0",
             "endpoints": {
-                "chat": "/api/chat",
                 "generate": "/api/generate/dungeon",
                 "generate_info": "/api/generate/info",
                 "health": "/api/health",

@@ -14,10 +14,18 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
-import Chat from '@mui/icons-material/Chat'
-import Send from '@mui/icons-material/Send'
 import Castle from '@mui/icons-material/Castle'
 import GridViewIcon from '@mui/icons-material/GridView'
+import SettingsIcon from '@mui/icons-material/Settings'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import Slider from '@mui/material/Slider'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import Tooltip from '@mui/material/Tooltip'
+import IconButton from '@mui/material/IconButton'
 import './App.css'
 import DungeonGrid from './components/DungeonGrid'
 import { parseDungeonData } from './models/DungeonModels'
@@ -88,183 +96,23 @@ const theme = createTheme({
   },
 });
 
-// Chat Component
-function ChatComponent({ open, onClose }) {
-  const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [dungeonResult, setDungeonResult] = useState(null);
-  const [parsedDungeonData, setParsedDungeonData] = useState(null);
-  const [selectedRoomId, setSelectedRoomId] = useState(null);
-  const [showGrid, setShowGrid] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!message.trim()) return;
-
-    const userMessage = message.trim();
-    setLoading(true);
-    setError('');
-    setDungeonResult(null);
-    setParsedDungeonData(null);
-
-    // Add user message to chat history
-    const newUserMessage = {
-      id: Date.now(),
-      type: 'user',
-      content: userMessage,
-      timestamp: new Date().toLocaleTimeString()
-    };
-
-    setChatHistory(prev => [...prev, newUserMessage]);
-    setMessage(''); // Clear input immediately
-
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Add AI response to chat history
-        const newAiMessage = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: data.message,
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setChatHistory(prev => [...prev, newAiMessage]);
-      } else {
-        setError(data.error || 'Failed to generate dungeon');
-        // Remove the user message if there was an error
-        setChatHistory(prev => prev.filter(msg => msg.id !== newUserMessage.id));
-      }
-    } catch (err) {
-      setError('Network error. Please check if the backend is running.');
-      // Remove the user message if there was an error
-      setChatHistory(prev => prev.filter(msg => msg.id !== newUserMessage.id));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDungeonGenerate = async () => {
-    if (!message.trim()) return;
-
-    const userMessage = message.trim();
-    setLoading(true);
-    setError('');
-    setDungeonResult(null);
-    setParsedDungeonData(null);
-
-    try {
-      // Create structured dungeon generation request
-      const dungeonRequest = {
-        guidelines: userMessage,
-        options: {
-          room_count: 10,
-          layout_type: "poisson_disc"
-        }
-      };
-
-      // Debug: Log what we're sending
-      console.log('Frontend sending dungeon request:', dungeonRequest);
-      console.log('Frontend sending JSON payload:', JSON.stringify(dungeonRequest, null, 2));
-
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dungeonRequest),
-      });
-
-      const data = await response.json();
-      console.log('Frontend received response:', data);
-
-      if (response.ok) {
-        setDungeonResult(data);
-
-        // Parse the dungeon data
-        try {
-          const parsed = parseDungeonData(data);
-          setParsedDungeonData(parsed);
-          setShowGrid(true);
-        } catch (parseError) {
-          console.error('Error parsing dungeon data:', parseError);
-          setError('Generated dungeon data could not be parsed for display');
-        }
-      } else {
-        setError(data.error || 'Failed to generate structured dungeon');
-      }
-    } catch (err) {
-      setError('Network error. Please check if the backend is running.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const clearHistory = () => {
-    setChatHistory([]);
-    setError('');
-    setDungeonResult(null);
-    setParsedDungeonData(null);
-    setShowGrid(false);
-    setSelectedRoomId(null);
-  };
-
-  const handleRoomSelect = (room) => {
-    setSelectedRoomId(room.id);
-  };
-
+// Dungeon Content Component (Main Content)
+function DungeonContent({
+  message,
+  setMessage,
+  loading,
+  error,
+  dungeonResult,
+  parsedDungeonData,
+  selectedRoomId,
+  showGrid,
+  setShowGrid,
+  onRoomSelect,
+  onSubmit,
+  onClear
+}) {
   return (
-    <Paper sx={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      borderRadius: 3,
-      overflow: 'hidden'
-    }}>
-      {/* Header */}
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        p: 2
-      }}>
-        <Typography variant="h6">
-          <Chat sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Dungeon Generator Chat
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {parsedDungeonData && (
-            <Button
-              onClick={() => setShowGrid(!showGrid)}
-              sx={{ color: 'white', fontSize: '0.8rem' }}
-              size="small"
-              startIcon={<GridViewIcon />}
-            >
-              {showGrid ? 'Hide Grid' : 'Show Grid'}
-            </Button>
-          )}
-          <Button
-            onClick={clearHistory}
-            sx={{ color: 'white', fontSize: '0.8rem' }}
-            size="small"
-          >
-            Clear History
-          </Button>
-        </Box>
-      </Box>
-
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {/* Content */}
       <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', height: '100%', flexGrow: 1 }}>
         <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
@@ -289,113 +137,69 @@ function ChatComponent({ open, onClose }) {
                   dungeonData={parsedDungeonData}
                   width="100%"
                   height={600}
-                  onRoomSelect={handleRoomSelect}
+                  onRoomSelect={onRoomSelect}
                   selectedRoomId={selectedRoomId}
                 />
               </Box>
-              {selectedRoomId && (
-                <Box sx={{ mt: 2, p: 2, backgroundColor: 'white', borderRadius: 1 }}>
-                  {parsedDungeonData && parsedDungeonData.dungeon && (() => {
-                    const selectedRoom = parsedDungeonData.dungeon.rooms.find(room => room.id === selectedRoomId);
-                    const roomContent = parsedDungeonData.dungeon.getRoomContent(selectedRoomId);
+                              {selectedRoomId && (
+                  <Box sx={{ mt: 2, p: 2, backgroundColor: 'white', borderRadius: 1 }}>
+                    {parsedDungeonData && parsedDungeonData.dungeon && (() => {
+                      try {
+                        const selectedRoom = parsedDungeonData.dungeon.rooms.find(room => room.id === selectedRoomId);
+                        const roomContent = parsedDungeonData.dungeon.getRoomContent(selectedRoomId);
 
-                    return selectedRoom ? (
-                      <>
-                        <Typography variant="subtitle2" color="primary" gutterBottom>
-                          Selected Room: {selectedRoom.name}
-                        </Typography>
-                        {selectedRoom.description && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                            {selectedRoom.description}
+                        return (
+                          <Box>
+                            <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>
+                              Room: {selectedRoom?.name || `Room ${selectedRoomId}`}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              <strong>Description:</strong> {selectedRoom?.description || 'No description available'}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              <strong>Size:</strong> {selectedRoom?.width && selectedRoom?.height ? `${selectedRoom.width} × ${selectedRoom.height}` : 'Unknown'}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              <strong>Shape:</strong> {selectedRoom?.shape || 'Rectangle'}
+                            </Typography>
+                            {roomContent && (
+                              <Box sx={{ mt: 1 }}>
+                                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                  <strong>Atmosphere:</strong> {roomContent.atmosphere || 'None specified'}
+                                </Typography>
+                                {roomContent.contents && roomContent.contents.length > 0 && (
+                                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                    <strong>Contents:</strong> {roomContent.contents.join(', ')}
+                                  </Typography>
+                                )}
+                                {roomContent.challenges && roomContent.challenges.length > 0 && (
+                                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                    <strong>Challenges:</strong> {roomContent.challenges.join(', ')}
+                                  </Typography>
+                                )}
+                                {roomContent.treasures && roomContent.treasures.length > 0 && (
+                                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                    <strong>Treasures:</strong> {roomContent.treasures.join(', ')}
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
+                        );
+                      } catch (error) {
+                        console.error('Error displaying room details:', error);
+                        return (
+                          <Typography variant="body2" color="error">
+                            Error loading room details. Please try selecting the room again.
                           </Typography>
-                        )}
-                        {roomContent && (
-                          <>
-                            {roomContent.atmosphere && (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                <strong>Atmosphere:</strong> {roomContent.atmosphere}
-                              </Typography>
-                            )}
-                            {roomContent.treasures && roomContent.treasures.length > 0 && (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                <strong>Treasures:</strong> {roomContent.treasures.join(', ')}
-                              </Typography>
-                            )}
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <Typography variant="subtitle2" color="primary" gutterBottom>
-                        Selected Room: {selectedRoomId}
-                      </Typography>
-                    );
-                  })()}
-                </Box>
-              )}
+                        );
+                      }
+                    })()}
+                  </Box>
+                )}
             </CardContent>
           </Card>
         )}
-
-        {/* Chat History */}
-        <Box sx={{
-          flexGrow: 1,
-          mb: 3,
-          overflowY: 'auto',
-          border: '1px solid #e0e0e0',
-          borderRadius: 2,
-          p: 2,
-          backgroundColor: '#fafafa',
-          minHeight: showGrid ? '200px' : '300px'
-        }}>
-          {chatHistory.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-              No messages yet. Start a conversation by describing your dungeon!
-            </Typography>
-          ) : (
-            <Stack spacing={2}>
-              {chatHistory.map((msg) => (
-                <Box
-                  key={msg.id}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: msg.type === 'user' ? 'flex-end' : 'flex-start',
-                    mb: 1
-                  }}
-                >
-                  <Card
-                    sx={{
-                      maxWidth: '80%',
-                      backgroundColor: msg.type === 'user' ? 'primary.main' : 'white',
-                      color: msg.type === 'user' ? 'white' : 'text.primary',
-                      border: msg.type === 'ai' ? '1px solid #e0e0e0' : 'none',
-                    }}
-                  >
-                    <CardContent sx={{ py: 1.5, px: 2 }}>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mb: 1 }}>
-                        {msg.content}
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                        {msg.timestamp}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Box>
-              ))}
-              {loading && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <Card sx={{ backgroundColor: 'white', border: '1px solid #e0e0e0' }}>
-                    <CardContent sx={{ py: 1.5, px: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CircularProgress size={16} />
-                        <Typography variant="body2">Generating dungeon...</Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Box>
-              )}
-            </Stack>
-          )}
-        </Box>
 
         {/* Error Display */}
         {error && (
@@ -433,7 +237,7 @@ function ChatComponent({ open, onClose }) {
         )}
 
         {/* Message Input */}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={onSubmit}>
           <TextField
             fullWidth
             multiline
@@ -446,30 +250,311 @@ function ChatComponent({ open, onClose }) {
             sx={{ mb: 2 }}
           />
 
-          {/* Split Button Layout */}
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={loading || !message.trim()}
-              startIcon={loading ? <CircularProgress size={20} /> : <Send />}
-              sx={{ flex: 1 }}
-            >
-              {loading ? 'Generating...' : 'Chat'}
-            </Button>
-
-            <Button
-              variant="contained"
-              color="secondary"
-              disabled={loading || !message.trim()}
-              startIcon={loading ? <CircularProgress size={20} /> : <Castle />}
-              onClick={handleDungeonGenerate}
-              sx={{ flex: 1 }}
-            >
-              {loading ? 'Generating...' : 'Dungeon'}
-            </Button>
-          </Box>
+          {/* Generate Button */}
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || !message.trim()}
+            startIcon={loading ? <CircularProgress size={20} /> : <Castle />}
+            fullWidth
+          >
+            {loading ? 'Generating...' : 'Generate Dungeon'}
+          </Button>
         </form>
+      </Box>
+    </Box>
+  );
+}
+
+// Dungeon Sidebar Component
+function DungeonSidebar({
+  settings,
+  onSettingsChange,
+  expanded,
+  onToggle
+}) {
+  return (
+    <Box sx={{
+      width: expanded ? 300 : 50,
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      transition: 'width 0.3s ease-in-out',
+      backgroundColor: 'transparent'
+    }}>
+      {/* Settings Content */}
+      {expanded && (
+        <Box sx={{
+          p: 3,
+          flexGrow: 1,
+          backgroundColor: 'white',
+          borderLeft: '1px solid #e0e0e0',
+          borderTop: '1px solid #e0e0e0'
+        }}>
+          <Typography variant="h6" sx={{ mb: 3, color: 'primary.main' }}>
+            Generation Parameters
+          </Typography>
+
+          {/* Number of Rooms */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Number of Rooms: {settings.roomCount}
+            </Typography>
+            <Slider
+              value={settings.roomCount}
+              onChange={(_, value) => onSettingsChange('roomCount', value)}
+              min={3}
+              max={20}
+              step={1}
+              marks={[
+                { value: 3, label: '3' },
+                { value: 10, label: '10' },
+                { value: 20, label: '20' }
+              ]}
+              valueLabelDisplay="auto"
+              sx={{ mt: 1 }}
+            />
+          </Box>
+
+          {/* Layout Type */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Layout Type
+            </Typography>
+            <Tooltip title="Poisson Disc layout creates natural-looking room distributions with optimal spacing" placement="top">
+              <FormControl fullWidth size="small">
+                <Select
+                  value={settings.layoutType}
+                  onChange={(e) => onSettingsChange('layoutType', e.target.value)}
+                  displayEmpty
+                  disabled
+                  sx={{
+                    backgroundColor: '#f8f9fa',
+                    '& .MuiSelect-select': { color: '#666' }
+                  }}
+                >
+                  <MenuItem value="poisson_disc">Poisson Disc</MenuItem>
+                </Select>
+              </FormControl>
+            </Tooltip>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+              Hover for description
+            </Typography>
+          </Box>
+
+          {/* Current Settings Display */}
+          <Card sx={{ backgroundColor: '#f8f9fa', p: 2, border: '1px solid #e0e0e0' }}>
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: 600, color: 'primary.main' }}>
+              Current Settings
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Rooms: {settings.roomCount}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Layout: Poisson Disc
+            </Typography>
+          </Card>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// Main Dungeon Generator Component
+function DungeonGenerator() {
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [dungeonResult, setDungeonResult] = useState(null);
+  const [parsedDungeonData, setParsedDungeonData] = useState(null);
+  const [selectedRoomId, setSelectedRoomId] = useState(null);
+  const [showGrid, setShowGrid] = useState(true); // Enable grid by default
+  const [settingsExpanded, setSettingsExpanded] = useState(true); // Expanded by default
+  const [settings, setSettings] = useState({
+    roomCount: 10,
+    layoutType: 'poisson_disc'
+  });
+
+  const handleDungeonGenerate = async () => {
+    if (!message.trim()) return;
+
+    setLoading(true);
+    setError('');
+    setDungeonResult(null);
+    setParsedDungeonData(null);
+    setShowGrid(true); // Always show grid after generation
+    setSelectedRoomId(null);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          guidelines: message,
+          options: {
+            room_count: settings.roomCount,
+            layout_type: settings.layoutType
+          }
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Received dungeon data:', data);
+
+      if (data.status === 'success') {
+        setDungeonResult(data);
+
+        try {
+          const parsed = parseDungeonData(data);
+          console.log('Successfully parsed dungeon data:', parsed);
+          setParsedDungeonData(parsed);
+        } catch (parseError) {
+          console.error('Error parsing dungeon data:', parseError);
+          console.error('Raw data that failed to parse:', data);
+          setError('Generated dungeon data could not be parsed for display');
+        }
+      } else {
+        setError(data.error || 'Failed to generate structured dungeon');
+      }
+    } catch (err) {
+      setError('Network error. Please check if the backend is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearHistory = () => {
+    setError('');
+    setDungeonResult(null);
+    setParsedDungeonData(null);
+    setShowGrid(true); // Keep grid visible
+    setSelectedRoomId(null);
+    setMessage('');
+  };
+
+  const handleRoomSelect = (room) => {
+    setSelectedRoomId(room.id);
+  };
+
+  const handleSettingsChange = (setting, value) => {
+    setSettings(prev => ({
+      ...prev,
+      [setting]: value
+    }));
+  };
+
+  const toggleSettings = () => {
+    setSettingsExpanded(!settingsExpanded);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    handleDungeonGenerate();
+  };
+
+  return (
+    <Paper sx={{
+      minHeight: '800px',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      borderRadius: 3,
+      overflow: 'hidden',
+      position: 'relative'
+    }}>
+      {/* Shared Header Cap */}
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color: 'white',
+        p: 2,
+        minHeight: 64,
+        width: '100%',
+        position: 'relative',
+        zIndex: 2
+      }}>
+        <Typography variant="h6">
+          <Castle sx={{ mr: 1, verticalAlign: 'middle' }} />
+          Dungeon Generator
+        </Typography>
+
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {parsedDungeonData && (
+            <Button
+              onClick={() => setShowGrid(!showGrid)}
+              sx={{ color: 'white', fontSize: '0.8rem' }}
+              size="small"
+              startIcon={<GridViewIcon />}
+            >
+              {showGrid ? 'Hide Grid' : 'Show Grid'}
+            </Button>
+          )}
+          <Button
+            onClick={clearHistory}
+            sx={{ color: 'white', fontSize: '0.8rem' }}
+            size="small"
+          >
+            Clear
+          </Button>
+          <IconButton
+            onClick={toggleSettings}
+            sx={{ color: 'white' }}
+            size="small"
+          >
+            <SettingsIcon />
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Content Area */}
+      <Box sx={{
+        flex: 1,
+        display: 'flex',
+        position: 'relative'
+      }}>
+        {/* Main Content */}
+        <Box sx={{
+          flex: 1,
+          marginRight: settingsExpanded ? '300px' : '50px',
+          transition: 'margin-right 0.3s ease-in-out',
+          minHeight: '800px'
+        }}>
+          <DungeonContent
+            message={message}
+            setMessage={setMessage}
+            loading={loading}
+            error={error}
+            dungeonResult={dungeonResult}
+            parsedDungeonData={parsedDungeonData}
+            selectedRoomId={selectedRoomId}
+            showGrid={showGrid}
+            setShowGrid={setShowGrid}
+            onRoomSelect={handleRoomSelect}
+            onSubmit={handleSubmit}
+            onClear={clearHistory}
+          />
+        </Box>
+
+        {/* Settings Sidebar */}
+        <Box sx={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          height: '100%',
+          minHeight: '800px',
+          zIndex: 1
+        }}>
+          <DungeonSidebar
+            settings={settings}
+            onSettingsChange={handleSettingsChange}
+            expanded={settingsExpanded}
+            onToggle={toggleSettings}
+          />
+        </Box>
       </Box>
     </Paper>
   );
@@ -489,11 +574,11 @@ function App() {
           </Toolbar>
         </AppBar>
 
-        {/* Main Chat Interface */}
+        {/* Main Dungeon Generator Interface */}
         <Box sx={{ flexGrow: 1, p: 3 }}>
-          <Container maxWidth="md" sx={{ height: '100%' }}>
-            <ChatComponent open={true} onClose={() => {}} />
-          </Container>
+          <Box sx={{ height: '100%', maxWidth: 'none' }}>
+            <DungeonGenerator />
+          </Box>
         </Box>
       </Box>
     </ThemeProvider>
