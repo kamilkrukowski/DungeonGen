@@ -183,12 +183,6 @@ class MonsterPlanner:
         """Select CR tier based on difficulty multiplier."""
         import random
 
-        # Debug logging
-        print(
-            f"DEBUG: _select_cr_tier called with difficulty_multiplier: {difficulty_multiplier}"
-        )
-        print(f"DEBUG: self.cr_tiers: {self.cr_tiers}")
-
         # Adjust weights based on difficulty multiplier
         adjusted_weights = {}
 
@@ -200,13 +194,11 @@ class MonsterPlanner:
                 "hard": 0.05,
                 "deadly": 0.0,
             }
-            print(f"DEBUG: Using easier encounter weights: {adjusted_weights}")
         elif difficulty_multiplier < 1.2:
             # Standard encounters - extract weights from cr_tiers
             adjusted_weights = {
                 tier: tier_data["weight"] for tier, tier_data in self.cr_tiers.items()
             }
-            print(f"DEBUG: Using standard encounter weights: {adjusted_weights}")
         else:
             # Harder encounters
             adjusted_weights = {
@@ -215,7 +207,6 @@ class MonsterPlanner:
                 "hard": 0.3,
                 "deadly": 0.1,
             }
-            print(f"DEBUG: Using harder encounter weights: {adjusted_weights}")
 
         # Validate that all weights are numeric
         for tier, weight in adjusted_weights.items():
@@ -228,9 +219,6 @@ class MonsterPlanner:
         # Convert to list for random selection
         tiers = list(adjusted_weights.keys())
         weights = list(adjusted_weights.values())
-
-        print(f"DEBUG: Final tiers: {tiers}")
-        print(f"DEBUG: Final weights: {weights}")
 
         return random.choices(tiers, weights=weights)[0]
 
