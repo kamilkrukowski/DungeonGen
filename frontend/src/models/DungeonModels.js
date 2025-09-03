@@ -225,8 +225,6 @@ export class RoomContent {
   }
 
   static fromObject(obj) {
-    console.log('RoomContent.fromObject called with:', obj);
-
     const traps = (obj.traps || []).map(trap => TrapData.fromObject(trap));
     const treasures = (obj.treasures || []).map(treasure => TreasureData.fromObject(treasure));
     const monsters = (obj.monsters || []).map(monster => MonsterData.fromObject(monster));
@@ -242,7 +240,6 @@ export class RoomContent {
       monsters
     );
 
-    console.log('Created RoomContent:', roomContent);
     return roomContent;
   }
 }
@@ -297,19 +294,14 @@ export class CorridorPath {
   }
 
   static fromObject(obj) {
-    console.log('Parsing corridor object:', obj);
-
     if (!obj.path_points || !Array.isArray(obj.path_points)) {
       console.error('Invalid path_points in corridor:', obj);
       throw new Error('Invalid path_points in corridor data');
     }
 
     const pathPoints = obj.path_points.map(p => {
-      console.log('Parsing path point:', p);
       return Coordinates.fromObject(p);
     });
-
-    console.log('Parsed path points:', pathPoints);
 
     return new CorridorPath(
       obj.connection_id,
