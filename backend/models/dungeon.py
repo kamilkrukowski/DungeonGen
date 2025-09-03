@@ -7,6 +7,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from pydantic import BaseModel
+
 
 class RoomShape(Enum):
     """Supported room shapes for dungeon generation."""
@@ -131,24 +133,47 @@ class Connection:
     description: str | None = None
 
 
-@dataclass
-class RoomContent:
-    """LLM-generated content for a room."""
+class TrapData(BaseModel):
+    """Data model for traps in rooms."""
 
-    room_id: str
+    name: str
+    trigger: str
+    effect: str
+    difficulty: str
+    location: str
+
+
+class TreasureData(BaseModel):
+    """Data model for treasure in rooms."""
+
     name: str
     description: str
-    contents: list[str] = field(
-        default_factory=list
-    )  # furniture, items, creatures, etc.
-    atmosphere: str = ""
-    challenges: list[str] = field(default_factory=list)
-    treasures: list[str] = field(default_factory=list)
+    value: str
+    location: str
+    requirements: str
 
-    # Content flags indicating what was sampled for this room
-    has_traps: bool = False
-    has_treasure: bool = False
-    has_monsters: bool = False
+
+class MonsterData(BaseModel):
+    """Data model for monsters in rooms."""
+
+    name: str
+    description: str
+    stats: str
+    behavior: str
+    location: str
+
+
+class RoomContent(BaseModel):
+    """Content for a dungeon room."""
+
+    room_id: str
+    purpose: str
+    name: str
+    gm_description: str
+    player_description: str
+    traps: list[TrapData] | None = None
+    treasures: list[TreasureData] | None = None
+    monsters: list[MonsterData] | None = None
 
 
 @dataclass

@@ -113,22 +113,44 @@ class GenerateStructuredDungeon(Resource):
                 flush=True,
             )
 
-            # Generate structured dungeon using business logic
-            print(
-                f"DEBUG: About to call generator with guidelines: room_count={guidelines.room_count}, layout_type={guidelines.layout_type}",
-                flush=True,
-            )
+            # Generate dungeon using the generator
             result = dungeon_generator.generate_dungeon(guidelines, options)
-            print(
-                f"DEBUG: Generator returned guidelines: room_count={result.guidelines.room_count}, layout_type={result.guidelines.layout_type}",
-                flush=True,
-            )
 
-            # Convert result to dict format for JSON response
-            print(
-                f"DEBUG: Response guidelines: room_count={result.guidelines.room_count}, layout_type={result.guidelines.layout_type}",
-                flush=True,
-            )
+            # Check if generation failed and return appropriate status code
+            if result.status == "error":
+                # Determine the appropriate HTTP status code based on error types
+                error_message = " ".join(result.errors).lower()
+                if any(
+                    keyword in error_message
+                    for keyword in [
+                        "connection",
+                        "timeout",
+                        "network",
+                        "unavailable",
+                        "llm",
+                    ]
+                ):
+                    return (
+                        ErrorResponse(
+                            error="Connection to AI service failed",
+                            error_type="connection_error",
+                            status_code=503,
+                            details="Unable to connect to the AI model service. Please check your connection and try again.",
+                        ).dict(),
+                        503,
+                    )
+                else:
+                    return (
+                        ErrorResponse(
+                            error="Generation failed due to an internal error",
+                            error_type="generation_error",
+                            status_code=500,
+                            details="; ".join(result.errors),
+                        ).dict(),
+                        500,
+                    )
+
+            # Convert dungeon layout to dictionary format
             response_data = {
                 "dungeon": self._dungeon_to_dict(result.dungeon),
                 "guidelines": {
@@ -160,9 +182,25 @@ class GenerateStructuredDungeon(Resource):
             return response.dict(), 200
 
         except ValueError as e:
-            return ErrorResponse(error=str(e)).dict(), 400
+            return (
+                ErrorResponse(
+                    error="Invalid request parameters",
+                    error_type="validation_error",
+                    status_code=400,
+                    details=str(e),
+                ).dict(),
+                400,
+            )
         except Exception as e:
-            return ErrorResponse(error=f"Generation failed: {str(e)}").dict(), 500
+            return (
+                ErrorResponse(
+                    error="Unexpected server error",
+                    error_type="internal_error",
+                    status_code=500,
+                    details=str(e),
+                ).dict(),
+                500,
+            )
 
     def _dungeon_to_dict(self, dungeon_layout):
         """Convert dungeon layout to dictionary format."""
@@ -171,7 +209,7 @@ class GenerateStructuredDungeon(Resource):
                 {
                     "id": room.id,
                     "name": room.name,
-                    "description": room.description,
+                    "description": getattr(room, "description", None),
                     "anchor": (
                         {"x": room.anchor.x, "y": room.anchor.y}
                         if room.anchor
@@ -180,6 +218,9 @@ class GenerateStructuredDungeon(Resource):
                     "width": room.width,
                     "height": room.height,
                     "shape": room.shape.value,
+                    "has_traps": getattr(room, "has_traps", False),
+                    "has_treasure": getattr(room, "has_treasure", False),
+                    "has_monsters": getattr(room, "has_monsters", False),
                 }
                 for room in dungeon_layout.rooms
             ],

@@ -2,9 +2,19 @@
 Pydantic models for the generate endpoint.
 """
 
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+class ErrorType(str, Enum):
+    """Types of errors that can occur during generation."""
+
+    VALIDATION_ERROR = "validation_error"
+    CONNECTION_ERROR = "connection_error"
+    GENERATION_ERROR = "generation_error"
+    INTERNAL_ERROR = "internal_error"
 
 
 class DungeonGenerateRequest(BaseModel):
@@ -37,3 +47,6 @@ class ErrorResponse(BaseModel):
     """Error response model."""
 
     error: str = Field(..., description="Error message")
+    error_type: ErrorType = Field(..., description="Type of error")
+    status_code: int = Field(..., description="HTTP status code")
+    details: str | None = Field(None, description="Additional error details")

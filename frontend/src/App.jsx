@@ -1,37 +1,46 @@
-import { useState } from 'react'
-import Container from '@mui/material/Container'
-import Typography from '@mui/material/Typography'
-import Box from '@mui/material/Box'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Button from '@mui/material/Button'
-import AppBar from '@mui/material/AppBar'
-import Toolbar from '@mui/material/Toolbar'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
-import Paper from '@mui/material/Paper'
-import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
-import CircularProgress from '@mui/material/CircularProgress'
-import Alert from '@mui/material/Alert'
-import Castle from '@mui/icons-material/Castle'
-import GridViewIcon from '@mui/icons-material/GridView'
-import SettingsIcon from '@mui/icons-material/Settings'
-import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
-import Slider from '@mui/material/Slider'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import Tooltip from '@mui/material/Tooltip'
-import IconButton from '@mui/material/IconButton'
-import Collapse from '@mui/material/Collapse'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import './App.css'
-import DungeonGrid from './components/DungeonGrid'
-import { parseDungeonData } from './models/DungeonModels'
+import React, { useState, useCallback } from 'react';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  TextField,
+  Typography,
+  Paper,
+  IconButton,
+  Collapse,
+  Alert,
+  CircularProgress,
+  Switch,
+  FormControlLabel,
+  Slider,
+  Divider,
+  AppBar,
+  Toolbar,
+  Container,
+  Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Tooltip,
+} from '@mui/material';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import {
+  Castle,
+  Settings as SettingsIcon,
+  GridView as GridViewIcon,
+  Refresh as RefreshIcon,
+  ChevronRight as ChevronRightIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material';
+import DungeonGrid from './components/DungeonGrid';
+import RoomContentPanel from './components/RoomContentPanel';
+import ErrorBanner from './components/ErrorBanner';
+import { parseDungeonData } from './models/DungeonModels';
 
 // Create a custom theme with dungeon-inspired colors
 const theme = createTheme({
@@ -112,7 +121,9 @@ function DungeonContent({
   setShowGrid,
   onRoomSelect,
   onSubmit,
-  onClear
+  onClear,
+  onRetry,
+  setError
 }) {
   return (
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -144,151 +155,13 @@ function DungeonContent({
                   selectedRoomId={selectedRoomId}
                 />
               </Box>
-                              {selectedRoomId && (
+
+              {selectedRoomId && (
                   <Box sx={{ mt: 2, p: 2, backgroundColor: 'white', borderRadius: 1 }}>
-                    {parsedDungeonData && parsedDungeonData.dungeon && (() => {
-                      try {
-                        const selectedRoom = parsedDungeonData.dungeon.rooms.find(room => room.id === selectedRoomId);
-                        const roomContent = parsedDungeonData.dungeon.getRoomContent(selectedRoomId);
-
-                        return (
-                          <Box>
-                            <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>
-                              Room: {selectedRoom?.name || `Room ${selectedRoomId}`}
-                            </Typography>
-
-                            {/* Content Type Flags - Active first, then inactive */}
-                            <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                              {/* Active flags first */}
-                              {roomContent?.hasTraps && (
-                                <Box sx={{
-                                  backgroundColor: '#ff6b6b',
-                                  color: 'white',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  fontSize: '0.75rem',
-                                  fontWeight: 'bold'
-                                }}>
-                                  🚨 TRAPS
-                                </Box>
-                              )}
-                              {roomContent?.hasTreasure && (
-                                <Box sx={{
-                                  backgroundColor: '#ffd93d',
-                                  color: 'black',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  fontSize: '0.75rem',
-                                  fontWeight: 'bold'
-                                }}>
-                                  💎 TREASURE
-                                </Box>
-                              )}
-                              {roomContent?.hasMonsters && (
-                                <Box sx={{
-                                  backgroundColor: '#6bcf7f',
-                                  color: 'white',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  fontSize: '0.75rem',
-                                  fontWeight: 'bold'
-                                }}>
-                                  👹 MONSTERS
-                                </Box>
-                              )}
-
-                              {/* Inactive flags second */}
-                              {!roomContent?.hasTraps && (
-                                <Box sx={{
-                                  backgroundColor: '#e0e0e0',
-                                  color: '#666',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  fontSize: '0.75rem',
-                                  fontWeight: 'bold',
-                                  opacity: 0.6
-                                }}>
-                                  🚨 TRAPS
-                                </Box>
-                              )}
-                              {!roomContent?.hasTreasure && (
-                                <Box sx={{
-                                  backgroundColor: '#e0e0e0',
-                                  color: '#666',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  fontSize: '0.75rem',
-                                  fontWeight: 'bold',
-                                  opacity: 0.6
-                                }}>
-                                  💎 TREASURE
-                                </Box>
-                              )}
-                              {!roomContent?.hasMonsters && (
-                                <Box sx={{
-                                  backgroundColor: '#e0e0e0',
-                                  color: '#666',
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  fontSize: '0.75rem',
-                                  fontWeight: 'bold',
-                                  opacity: 0.6
-                                }}>
-                                  👹 MONSTERS
-                                </Box>
-                              )}
-                            </Box>
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              <strong>Description:</strong> {selectedRoom?.description || 'No description available'}
-                            </Typography>
-
-
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              <strong>Size:</strong> {selectedRoom?.width && selectedRoom?.height ? `${selectedRoom.width} × ${selectedRoom.height}` : 'Unknown'}
-                            </Typography>
-                            <Typography variant="body2" sx={{ mb: 1 }}>
-                              <strong>Shape:</strong> {selectedRoom?.shape || 'Rectangle'}
-                            </Typography>
-                            {roomContent && (
-                              <Box sx={{ mt: 1 }}>
-                                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                  <strong>Atmosphere:</strong> {roomContent.atmosphere || 'None specified'}
-                                </Typography>
-
-                                {roomContent.contents && roomContent.contents.length > 0 && (
-                                  <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                    <strong>Contents:</strong> {roomContent.contents.join(', ')}
-                                  </Typography>
-                                )}
-                                {roomContent.challenges && roomContent.challenges.length > 0 && (
-                                  <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                    <strong>Challenges:</strong> {roomContent.challenges.join(', ')}
-                                  </Typography>
-                                )}
-                                {roomContent.treasures && roomContent.treasures.length > 0 && (
-                                  <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                    <strong>Treasures:</strong> {roomContent.treasures.join(', ')}
-                                  </Typography>
-                                )}
-                              </Box>
-                            )}
-                          </Box>
-                        );
-                      } catch (error) {
-                        console.error('Error displaying room details:', error);
-                        return (
-                          <Typography variant="body2" color="error">
-                            Error loading room details. Please try selecting the room again.
-                          </Typography>
-                        );
-                      }
-                    })()}
+                    <RoomContentPanel
+                      parsedDungeonData={parsedDungeonData}
+                      selectedRoomId={selectedRoomId}
+                    />
                   </Box>
                 )}
             </CardContent>
@@ -296,11 +169,11 @@ function DungeonContent({
         )}
 
         {/* Error Display */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        <ErrorBanner
+          error={error}
+          onRetry={onRetry}
+          onDismiss={() => setError('')}
+        />
 
         {/* Dungeon Result Display (JSON) - Only show if grid is hidden */}
         {dungeonResult && !showGrid && (
@@ -742,6 +615,8 @@ function DungeonGenerator() {
             onRoomSelect={handleRoomSelect}
             onSubmit={handleSubmit}
             onClear={clearHistory}
+            onRetry={handleDungeonGenerate}
+            setError={setError}
           />
         </Box>
 

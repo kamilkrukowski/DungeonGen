@@ -124,8 +124,13 @@ class DungeonGenerator:
         self, layout: DungeonLayout, room_contents: list
     ) -> DungeonLayout:
         """Apply LLM-generated contents to the layout."""
+        print(
+            f"DEBUG: _apply_contents_to_layout called with {len(room_contents)} room contents"
+        )
+
         # Create content map for metadata
         content_map = {content.room_id: content for content in room_contents}
+        print(f"DEBUG: Created content map with keys: {list(content_map.keys())}")
 
         # Update room objects with new names and descriptions
         updated_rooms = []
@@ -135,21 +140,25 @@ class DungeonGenerator:
                 updated_room = Room(
                     id=room.id,
                     name=content.name,  # Use the LLM-generated name
-                    description=content.description,  # Use the LLM-generated description
+                    description=content.player_description,  # Use the LLM-generated player description
                     anchor=room.anchor,
                     width=room.width,
                     height=room.height,
                     shape=room.shape,
-                    has_traps=content.has_traps,
-                    has_treasure=content.has_treasure,
-                    has_monsters=content.has_monsters,
+                    has_traps=bool(content.traps and len(content.traps) > 0),
+                    has_treasure=bool(content.treasures and len(content.treasures) > 0),
+                    has_monsters=bool(content.monsters and len(content.monsters) > 0),
                 )
                 updated_rooms.append(updated_room)
+                print(f"DEBUG: Updated room {room.id} with content")
             else:
                 updated_rooms.append(room)
+                print(f"DEBUG: Room {room.id} has no content")
 
-        metadata = layout.metadata.copy()
+        # Ensure metadata is properly initialized
+        metadata = layout.metadata.copy() if layout.metadata else {}
         metadata["room_contents"] = content_map
+        print(f"DEBUG: Final metadata keys: {list(metadata.keys())}")
 
         return DungeonLayout(
             rooms=updated_rooms, connections=layout.connections, metadata=metadata

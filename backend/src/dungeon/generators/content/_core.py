@@ -6,6 +6,7 @@ import os
 import random
 
 from langchain_groq import ChatGroq
+from opentelemetry import trace
 
 from models.dungeon import (
     DungeonGuidelines,
@@ -113,7 +114,27 @@ class LLMContentGenerator(BaseContentGenerator):
 
             # IMMEDIATELY update the room object in the layout so subsequent rooms can see it
             room.name = room_content.name
-            room.description = room_content.description
+            room.description = (
+                room_content.player_description
+            )  # Use player description for room description
+
+            # Set span attributes for room update
+            current_span = trace.get_current_span()
+            if current_span:
+                current_span.set_attribute(f"room_{room.id}_updated_name", room.name)
+                current_span.set_attribute(
+                    f"room_{room.id}_updated_description",
+                    room.description[:100] if room.description else "",
+                )
+                current_span.set_attribute(
+                    f"room_{room.id}_purpose", room_content.purpose
+                )
+                current_span.set_attribute(
+                    f"room_{room.id}_content_flags_sampled", str(content_flags)
+                )
+                current_span.set_attribute(
+                    f"room_{room.id}_unused_flags_sampled", str(unused_flags)
+                )
 
         return room_contents
 
@@ -124,22 +145,15 @@ class LLMContentGenerator(BaseContentGenerator):
         room_contents = []
 
         for room in layout.rooms:
-            # Use the content flags that were already determined during dimension generation
-            has_traps = room.has_traps
-            has_treasure = room.has_treasure
-            has_monsters = room.has_monsters
-
             room_content = RoomContent(
                 room_id=room.id,
+                purpose="passage",
                 name="ERROR",
-                description="ERROR",
-                contents=["ERROR"],
-                atmosphere="ERROR",
-                challenges=["ERROR"],
-                treasures=["ERROR"],
-                has_traps=has_traps,
-                has_treasure=has_treasure,
-                has_monsters=has_monsters,
+                gm_description="ERROR",
+                player_description="ERROR",
+                traps=[],
+                treasures=[],
+                monsters=[],
             )
             room_contents.append(room_content)
 

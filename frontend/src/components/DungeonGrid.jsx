@@ -38,8 +38,6 @@ const DungeonGrid = ({
 
   // Helper method to get corridor styling based on hallway type
   const getCorridorStyle = useCallback((hallwayType) => {
-    console.log('Getting corridor style for type:', hallwayType);
-
     switch (hallwayType) {
       case 'narrow_passage':
         return { color: '#8B4513', borderColor: '#654321' }; // Brown
@@ -311,10 +309,8 @@ const DungeonGrid = ({
 
     // Draw corridors first (behind rooms)
     if (dungeonData && dungeonData.dungeon && dungeonData.dungeon.corridors) {
-      console.log('Drawing corridors:', dungeonData.dungeon.corridors);
 
       dungeonData.dungeon.corridors.forEach((corridor, index) => {
-        console.log(`Corridor ${index}:`, corridor);
 
         // Defensive checks
         if (!corridor || !corridor.pathPoints || !Array.isArray(corridor.pathPoints)) {
@@ -525,7 +521,7 @@ const DungeonGrid = ({
     if (room && onRoomSelect) {
       onRoomSelect(room);
     }
-    }, [isDragging, findRoomAtPosition, onRoomSelect]);
+  }, [isDragging, findRoomAtPosition, onRoomSelect]);
 
   // Zoom controls
   const handleZoomIn = () => {

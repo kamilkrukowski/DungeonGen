@@ -145,33 +145,98 @@ export class Connection {
   }
 }
 
-export class RoomContent {
-  constructor(roomId, name, description, contents = [], atmosphere = '', challenges = [], treasures = [], hasTraps = false, hasTreasure = false, hasMonsters = false) {
-    this.roomId = roomId;
+export class TrapData {
+  constructor(name, trigger, effect, difficulty, location) {
     this.name = name;
-    this.description = description;
-    this.contents = contents;
-    this.atmosphere = atmosphere;
-    this.challenges = challenges;
-    this.treasures = treasures;
-    this.hasTraps = hasTraps;
-    this.hasTreasure = hasTreasure;
-    this.hasMonsters = hasMonsters;
+    this.trigger = trigger;
+    this.effect = effect;
+    this.difficulty = difficulty;
+    this.location = location;
   }
 
   static fromObject(obj) {
-    return new RoomContent(
-      obj.room_id,
+    return new TrapData(
+      obj.name,
+      obj.trigger,
+      obj.effect,
+      obj.difficulty,
+      obj.location
+    );
+  }
+}
+
+export class TreasureData {
+  constructor(name, description, value, location, requirements) {
+    this.name = name;
+    this.description = description;
+    this.value = value;
+    this.location = location;
+    this.requirements = requirements;
+  }
+
+  static fromObject(obj) {
+    return new TreasureData(
       obj.name,
       obj.description,
-      obj.contents || [],
-      obj.atmosphere || '',
-      obj.challenges || [],
-      obj.treasures || [],
-      obj.has_traps || false,
-      obj.has_treasure || false,
-      obj.has_monsters || false
+      obj.value,
+      obj.location,
+      obj.requirements
     );
+  }
+}
+
+export class MonsterData {
+  constructor(name, description, stats, behavior, location) {
+    this.name = name;
+    this.description = description;
+    this.stats = stats;
+    this.behavior = behavior;
+    this.location = location;
+  }
+
+  static fromObject(obj) {
+    return new MonsterData(
+      obj.name,
+      obj.description,
+      obj.stats,
+      obj.behavior,
+      obj.location
+    );
+  }
+}
+
+export class RoomContent {
+  constructor(roomId, purpose, name, gmDescription, playerDescription, traps = [], treasures = [], monsters = []) {
+    this.roomId = roomId;
+    this.purpose = purpose;
+    this.name = name;
+    this.gmDescription = gmDescription;
+    this.playerDescription = playerDescription;
+    this.traps = traps;
+    this.treasures = treasures;
+    this.monsters = monsters;
+  }
+
+  static fromObject(obj) {
+    console.log('RoomContent.fromObject called with:', obj);
+
+    const traps = (obj.traps || []).map(trap => TrapData.fromObject(trap));
+    const treasures = (obj.treasures || []).map(treasure => TreasureData.fromObject(treasure));
+    const monsters = (obj.monsters || []).map(monster => MonsterData.fromObject(monster));
+
+    const roomContent = new RoomContent(
+      obj.room_id,
+      obj.purpose,
+      obj.name,
+      obj.gm_description,
+      obj.player_description,
+      traps,
+      treasures,
+      monsters
+    );
+
+    console.log('Created RoomContent:', roomContent);
+    return roomContent;
   }
 }
 
@@ -187,19 +252,24 @@ export class DungeonLayout {
   static fromObject(obj) {
     const rooms = (obj.rooms || []).map(room => Room.fromObject(room));
     const connections = (obj.connections || []).map(conn => Connection.fromObject(conn));
-    const corridors = (obj.corridors || []).map(corridor => CorridorPath.fromObject(corridor));  // NEW: parse corridors
+    const corridors = (obj.corridors || []).map(corridor => CorridorPath.fromObject(corridor));
     const viewport = CanvasViewport.fromObject(obj.viewport) || CanvasViewport.fromRooms(rooms);
 
     // Parse room contents from metadata if available
     const roomContents = {};
     if (obj.metadata && obj.metadata.room_contents) {
       Object.entries(obj.metadata.room_contents).forEach(([roomId, contentData]) => {
-        roomContents[roomId] = RoomContent.fromObject(contentData);
+        try {
+          roomContents[roomId] = RoomContent.fromObject(contentData);
+        } catch (error) {
+          console.error(`Error parsing content for room ${roomId}:`, error);
+        }
       });
     }
 
     const metadata = { ...obj.metadata, roomContents };
-    return new DungeonLayout(rooms, connections, corridors, metadata, viewport);  // NEW: include corridors
+
+    return new DungeonLayout(rooms, connections, corridors, metadata, viewport);
   }
 
   getRoomContent(roomId) {
@@ -314,6 +384,33 @@ export class DungeonResult {
       obj.status,
       obj.errors || []
     );
+  }
+
+  // Helper method to check if this is a connection error
+  isConnectionError() {
+    return this.errors.some(error =>
+      typeof error === 'string' &&
+      (error.toLowerCase().includes('connection') ||
+       error.toLowerCase().includes('llm provider') ||
+       error.toLowerCase().includes('ai service'))
+    );
+  }
+
+  // Helper method to get the main error message
+  getMainErrorMessage() {
+    if (this.errors.length === 0) return '';
+
+    const firstError = this.errors[0];
+    if (typeof firstError === 'string') {
+      return firstError;
+    }
+
+    // Handle structured error objects
+    if (firstError && typeof firstError === 'object') {
+      return firstError.error || firstError.message || 'Unknown error occurred';
+    }
+
+    return 'An unexpected error occurred';
   }
 }
 
