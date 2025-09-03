@@ -18,6 +18,14 @@ class ErrorType(str, Enum):
     INVALID_API_KEY = "invalid_api_key"
 
 
+class ErrorLocation(BaseModel):
+    """Location information for errors."""
+
+    file: str = Field(..., description="File where the error occurred")
+    line: int | None = Field(None, description="Line number where the error occurred")
+    function: str = Field(..., description="Function where the error occurred")
+
+
 class DungeonGenerateRequest(BaseModel):
     """Request model for structured dungeon generation."""
 
@@ -53,4 +61,7 @@ class ErrorResponse(BaseModel):
     details: str | None = Field(None, description="Additional error details")
     traceback: str | None = Field(
         None, description="Full error traceback for debugging"
+    )
+    location: ErrorLocation | None = Field(
+        None, description="File, line, and function where the error occurred"
     )

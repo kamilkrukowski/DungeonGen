@@ -76,7 +76,38 @@ class DungeonGenerator:
             )
 
         except Exception as e:
-            errors.append(f"Generation failed: {str(e)}")
+            # Preserve the original exception context for better debugging
+            import traceback
+
+            error_details = f"Generation failed: {str(e)}"
+
+            # Add more context if available
+            if hasattr(e, "__traceback__"):
+                tb = e.__traceback__
+                # Try to find the most relevant frame in our code
+                while tb and not tb.tb_frame.f_code.co_filename.endswith("dungeon"):
+                    tb = tb.tb_next
+
+                if tb:
+                    frame = tb.tb_frame
+                    filename = frame.f_code.co_filename
+                    lineno = tb.tb_lineno
+                    function = frame.f_code.co_name
+
+                    # Convert absolute paths to relative paths
+                    if "/backend/" in filename:
+                        filename = filename.split("/backend/")[-1]
+                    elif "/DungeonGen/" in filename:
+                        filename = filename.split("/DungeonGen/")[-1]
+
+                    error_details += f" at {filename}:{lineno} in {function}"
+
+            errors.append(error_details)
+
+            # Log the full error for debugging
+            print(f"ERROR: Dungeon generation failed: {e}")
+            print(f"ERROR: Full traceback:\n{traceback.format_exc()}")
+
             return DungeonResult(
                 dungeon=DungeonLayout(),
                 guidelines=guidelines,
