@@ -3,7 +3,6 @@ LLM-based content generation for dungeons.
 """
 
 import os
-import random
 
 from langchain_groq import ChatGroq
 from opentelemetry import trace
@@ -52,7 +51,7 @@ class LLMContentGenerator(BaseContentGenerator):
         Generate detailed content for each room using LLM.
 
         Args:
-            layout: Dungeon layout with rooms (should already have content flags set)
+            layout: Dungeon layout with rooms (content flags should be pre-sampled by RoomSampler)
             guidelines: Generation guidelines including content percentages
             options: Generation options
 
@@ -64,39 +63,24 @@ class LLMContentGenerator(BaseContentGenerator):
 
         room_contents = []
 
-        def _sample_and_set_content_flags(room, guidelines: DungeonGuidelines):
-            # Sample content flags for this room based on guidelines
-            has_traps = random.random() < guidelines.percentage_rooms_trapped
-            has_treasure = random.random() < guidelines.percentage_rooms_with_treasure
-            has_monsters = random.random() < guidelines.percentage_rooms_with_monsters
-
-            # Set the content flags on the room object
-            room.has_traps = has_traps
-            room.has_treasure = has_treasure
-            room.has_monsters = has_monsters
-
-            # Create room-specific prompt with content flags
+        for room in layout.rooms:
+            # Content flags should already be set on the room object by RoomSampler
+            # Just extract them for the prompt
             content_flags = []
             unused_flags = []
-            if has_traps:
+
+            if room.has_traps:
                 content_flags.append("traps")
             else:
                 unused_flags.append("traps")
-            if has_treasure:
+            if room.has_treasure:
                 content_flags.append("treasure")
             else:
                 unused_flags.append("treasure")
-            if has_monsters:
+            if room.has_monsters:
                 content_flags.append("monsters")
             else:
                 unused_flags.append("monsters")
-
-            return content_flags, unused_flags
-
-        for room in layout.rooms:
-            content_flags, unused_flags = _sample_and_set_content_flags(
-                room, guidelines
-            )
 
             # Use the content chain to generate room content
             chain_inputs = {

@@ -50,3 +50,6 @@ class ErrorResponse(BaseModel):
     error_type: ErrorType = Field(..., description="Type of error")
     status_code: int = Field(..., description="HTTP status code")
     details: str | None = Field(None, description="Additional error details")
+    traceback: str | None = Field(
+        None, description="Full error traceback for debugging"
+    )

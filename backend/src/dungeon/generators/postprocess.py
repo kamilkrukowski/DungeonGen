@@ -4,11 +4,11 @@ Post-processing generators for dungeon layouts.
 
 import math
 import random
-from dataclasses import dataclass
 
 from models.dungeon import (
     Connection,
     Coordinates,
+    CorridorPath,
     DungeonGuidelines,
     DungeonLayout,
     GenerationOptions,
@@ -16,19 +16,6 @@ from models.dungeon import (
 )
 
 from .layout.hallway_sampler import HallwaySpec, HallwayType
-
-
-@dataclass
-class CorridorPath:
-    """Represents the actual path of a corridor between rooms."""
-
-    connection_id: str  # References the Connection
-    room_a_id: str
-    room_b_id: str
-    path_points: list[Coordinates]  # List of grid coordinates forming the path
-    width: int
-    hallway_type: str
-    description: str | None = None
 
 
 class PostProcessor:
@@ -82,7 +69,7 @@ class PostProcessor:
 
         for room in sorted_rooms:
             # Set room anchor to current position
-            room.anchor = Coordinates(current_x, 0)
+            room.anchor = Coordinates(x=current_x, y=0)
 
             # Move to next position: current room width + 2 units spacing
             current_x += room.width + 2
@@ -241,11 +228,11 @@ class CorridorGenerator:
 
         if go_horizontal_first:
             # Go horizontal first, then vertical
-            corner = Coordinates(end.x, start.y)
+            corner = Coordinates(x=end.x, y=start.y)
             return [start, corner, end]
         else:
             # Go vertical first, then horizontal
-            corner = Coordinates(start.x, end.y)
+            corner = Coordinates(x=start.x, y=end.y)
             return [start, corner, end]
 
     def _generate_winding_path(
@@ -274,11 +261,11 @@ class CorridorGenerator:
             if abs(dx) > abs(dy):
                 # More horizontal movement, add vertical randomness
                 random_offset = random.randint(-2, 2)
-                waypoint = Coordinates(int(base_x), int(base_y + random_offset))
+                waypoint = Coordinates(x=int(base_x), y=int(base_y + random_offset))
             else:
                 # More vertical movement, add horizontal randomness
                 random_offset = random.randint(-2, 2)
-                waypoint = Coordinates(int(base_x + random_offset), int(base_y))
+                waypoint = Coordinates(x=int(base_x + random_offset), y=int(base_y))
 
             path.append(waypoint)
 
@@ -329,7 +316,7 @@ class CorridorGenerator:
                     + 2 * (1 - t) * t * control_y
                     + t * t * end.y
                 )
-                path.append(Coordinates(int(x), int(y)))
+                path.append(Coordinates(x=int(x), y=int(y)))
 
             return path
 

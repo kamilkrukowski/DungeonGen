@@ -60,10 +60,18 @@ def test_corridor_fix():
 
         simple_rooms = [
             Room(
-                id="room1", name="Room 1", anchor=Coordinates(0, 0), width=5, height=4
+                id="room1",
+                name="Room 1",
+                anchor=Coordinates(x=0, y=0),
+                width=5,
+                height=4,
             ),
             Room(
-                id="room2", name="Room 2", anchor=Coordinates(10, 0), width=6, height=5
+                id="room2",
+                name="Room 2",
+                anchor=Coordinates(x=10, y=0),
+                width=6,
+                height=5,
             ),
         ]
         simple_connections = [

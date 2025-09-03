@@ -2,6 +2,9 @@
 Generate endpoint router for structured dungeon generation.
 """
 
+import json
+import traceback
+
 from flask import Blueprint, jsonify, request
 from flask_restx import Namespace, Resource, fields
 
@@ -86,7 +89,16 @@ class GenerateStructuredDungeon(Resource):
             try:
                 dungeon_request = DungeonGenerateRequest(**data)
             except Exception as e:
-                return ErrorResponse(error=f"Invalid request: {str(e)}").dict(), 400
+                return (
+                    ErrorResponse(
+                        error="Invalid request parameters",
+                        error_type="validation_error",
+                        status_code=400,
+                        details=str(e),
+                        traceback=f"Request Validation Error:\n{str(e)}\n\nRequest Data:\n{json.dumps(data, indent=2)}",
+                    ).dict(),
+                    400,
+                )
 
             # Parse user guidelines into structured format
             guidelines = parse_user_guidelines(dungeon_request.guidelines)
@@ -136,6 +148,8 @@ class GenerateStructuredDungeon(Resource):
                             error_type="connection_error",
                             status_code=503,
                             details="Unable to connect to the AI model service. Please check your connection and try again.",
+                            traceback="Connection Error Details:\n"
+                            + "\n".join(result.errors),
                         ).dict(),
                         503,
                     )
@@ -146,31 +160,16 @@ class GenerateStructuredDungeon(Resource):
                             error_type="generation_error",
                             status_code=500,
                             details="; ".join(result.errors),
+                            traceback="Generation Errors:\n" + "\n".join(result.errors),
                         ).dict(),
                         500,
                     )
 
-            # Convert dungeon layout to dictionary format
+            # Use Pydantic auto-serialization
             response_data = {
-                "dungeon": self._dungeon_to_dict(result.dungeon),
-                "guidelines": {
-                    "theme": result.guidelines.theme,
-                    "atmosphere": result.guidelines.atmosphere,
-                    "difficulty": result.guidelines.difficulty,
-                    "room_count": result.guidelines.room_count,
-                    "layout_type": result.guidelines.layout_type,
-                    "special_requirements": result.guidelines.special_requirements,
-                    "percentage_rooms_trapped": result.guidelines.percentage_rooms_trapped,
-                    "percentage_rooms_with_treasure": result.guidelines.percentage_rooms_with_treasure,
-                    "percentage_rooms_with_monsters": result.guidelines.percentage_rooms_with_monsters,
-                },
-                "options": {
-                    "include_contents": result.options.include_contents,
-                    "include_atmosphere": result.options.include_atmosphere,
-                    "include_challenges": result.options.include_challenges,
-                    "include_treasures": result.options.include_treasures,
-                    "llm_model": result.options.llm_model,
-                },
+                "dungeon": result.dungeon.model_dump(),
+                "guidelines": result.guidelines.model_dump(),
+                "options": result.options.model_dump(),
                 "generation_time": result.generation_time.isoformat(),
                 "status": result.status,
                 "errors": result.errors,
@@ -188,6 +187,7 @@ class GenerateStructuredDungeon(Resource):
                     error_type="validation_error",
                     status_code=400,
                     details=str(e),
+                    traceback=f"ValueError Details:\n{str(e)}\n\nRequest Data:\n{json.dumps(request.get_json() or {}, indent=2)}",
                 ).dict(),
                 400,
             )
@@ -198,73 +198,12 @@ class GenerateStructuredDungeon(Resource):
                     error_type="internal_error",
                     status_code=500,
                     details=str(e),
+                    traceback=traceback.format_exc(),
                 ).dict(),
                 500,
             )
 
-    def _dungeon_to_dict(self, dungeon_layout):
-        """Convert dungeon layout to dictionary format."""
-        return {
-            "rooms": [
-                {
-                    "id": room.id,
-                    "name": room.name,
-                    "description": getattr(room, "description", None),
-                    "anchor": (
-                        {"x": room.anchor.x, "y": room.anchor.y}
-                        if room.anchor
-                        else None
-                    ),
-                    "width": room.width,
-                    "height": room.height,
-                    "shape": room.shape.value,
-                    "has_traps": getattr(room, "has_traps", False),
-                    "has_treasure": getattr(room, "has_treasure", False),
-                    "has_monsters": getattr(room, "has_monsters", False),
-                }
-                for room in dungeon_layout.rooms
-            ],
-            "connections": [
-                {
-                    "room_a_id": conn.room_a_id,
-                    "room_b_id": conn.room_b_id,
-                    "connection_type": conn.connection_type,
-                    "description": conn.description,
-                }
-                for conn in dungeon_layout.connections
-            ],
-            "corridors": (
-                [
-                    {
-                        "connection_id": corridor.connection_id,
-                        "room_a_id": corridor.room_a_id,
-                        "room_b_id": corridor.room_b_id,
-                        "path_points": [
-                            {"x": point.x, "y": point.y}
-                            for point in corridor.path_points
-                        ],
-                        "width": corridor.width,
-                        "hallway_type": corridor.hallway_type,
-                        "description": corridor.description,
-                    }
-                    for corridor in dungeon_layout.corridors
-                ]
-                if hasattr(dungeon_layout, "corridors") and dungeon_layout.corridors
-                else []
-            ),
-            "metadata": dungeon_layout.metadata,
-            "viewport": (
-                {
-                    "min_x": dungeon_layout.viewport.min_x,
-                    "min_y": dungeon_layout.viewport.min_y,
-                    "max_x": dungeon_layout.viewport.max_x,
-                    "max_y": dungeon_layout.viewport.max_y,
-                    "margin": dungeon_layout.viewport.margin,
-                }
-                if dungeon_layout.viewport
-                else None
-            ),
-        }
+    # Removed _dungeon_to_dict method - now using Pydantic auto-serialization
 
 
 @generate_ns.route("/info")
@@ -279,7 +218,16 @@ class GeneratorInfo(Resource):
             info = dungeon_generator.get_model_info()
             return info, 200
         except Exception as e:
-            return ErrorResponse(error=f"Failed to get info: {str(e)}").dict(), 500
+            return (
+                ErrorResponse(
+                    error=f"Failed to get info: {str(e)}",
+                    error_type="internal_error",
+                    status_code=500,
+                    details=str(e),
+                    traceback=traceback.format_exc(),
+                ).dict(),
+                500,
+            )
 
 
 @generate_bp.route("/info", methods=["GET"])
@@ -291,6 +239,14 @@ def get_generator_info_legacy():
         return jsonify(info), 200
     except Exception as e:
         return (
-            jsonify(ErrorResponse(error=f"Failed to get info: {str(e)}").dict()),
+            jsonify(
+                ErrorResponse(
+                    error=f"Failed to get info: {str(e)}",
+                    error_type="internal_error",
+                    status_code=500,
+                    details=str(e),
+                    traceback=traceback.format_exc(),
+                ).dict()
+            ),
             500,
         )

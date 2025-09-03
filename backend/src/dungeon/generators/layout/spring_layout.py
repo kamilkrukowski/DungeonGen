@@ -119,7 +119,8 @@ class SpringLayout:
                 new_pos = positions[room.id]
                 # Calculate new anchor point (top-left corner)
                 new_anchor = Coordinates(
-                    int(new_pos[0] - room.width / 2), int(new_pos[1] - room.height / 2)
+                    x=int(new_pos[0] - room.width / 2),
+                    y=int(new_pos[1] - room.height / 2),
                 )
 
                 # Create new room with updated position
@@ -991,11 +992,11 @@ class SpringLayout:
 
         a_min = room_a.anchor
         a_max = Coordinates(
-            room_a.anchor.x + room_a.width, room_a.anchor.y + room_a.height
+            x=room_a.anchor.x + room_a.width, y=room_a.anchor.y + room_a.height
         )
         b_min = room_b.anchor
         b_max = Coordinates(
-            room_b.anchor.x + room_b.width, room_b.anchor.y + room_b.height
+            x=room_b.anchor.x + room_b.width, y=room_b.anchor.y + room_b.height
         )
 
         return (

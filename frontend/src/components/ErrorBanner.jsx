@@ -15,9 +15,13 @@ import {
 } from '@mui/icons-material';
 
 const ErrorBanner = ({ error, onRetry, onDismiss }) => {
-  const isConnectionError = error?.toLowerCase().includes('connection') ||
-                           error?.toLowerCase().includes('llm provider') ||
-                           error?.toLowerCase().includes('ai service');
+  // Handle both string errors and structured error objects
+  const errorMessage = typeof error === 'string' ? error : error?.details || error?.error || 'Unknown error';
+  const errorTraceback = error?.traceback;
+
+  const isConnectionError = errorMessage?.toLowerCase().includes('connection') ||
+                           errorMessage?.toLowerCase().includes('llm provider') ||
+                           errorMessage?.toLowerCase().includes('ai service');
 
   const getErrorIcon = () => {
     if (isConnectionError) return <ConnectionIcon />;
@@ -33,7 +37,7 @@ const ErrorBanner = ({ error, onRetry, onDismiss }) => {
     if (isConnectionError) {
       return 'Unable to connect to the AI model service. This could be due to network issues or the service being temporarily unavailable.';
     }
-    return error || 'An unexpected error occurred during dungeon generation.';
+    return errorMessage || 'An unexpected error occurred during dungeon generation.';
   };
 
   const getErrorSeverity = () => {
@@ -102,6 +106,45 @@ const ErrorBanner = ({ error, onRetry, onDismiss }) => {
               <InfoIcon sx={{ fontSize: 16, mr: 0.5 }} />
               <strong>Tip:</strong> Check your internet connection and try again. If the problem persists, the AI service may be temporarily unavailable.
             </Typography>
+          </Box>
+        )}
+
+        {/* Show traceback for debugging if available */}
+        {errorTraceback && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+              Debug Information (click to expand):
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                mt: 1,
+                p: 1,
+                backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                borderRadius: 1,
+                fontSize: '0.75rem',
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                maxHeight: '200px',
+                overflow: 'auto',
+                cursor: 'pointer',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                },
+              }}
+              onClick={(e) => {
+                const target = e.target;
+                if (target.style.maxHeight === '200px') {
+                  target.style.maxHeight = 'none';
+                } else {
+                  target.style.maxHeight = '200px';
+                }
+              }}
+              title="Click to expand/collapse traceback"
+            >
+              {errorTraceback}
+            </Box>
           </Box>
         )}
       </Alert>

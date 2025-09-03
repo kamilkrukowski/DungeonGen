@@ -135,6 +135,86 @@ const RoomContentPanel = ({ parsedDungeonData, selectedRoomId }) => {
           size="small"
           sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'inherit' }}
         />
+
+        {/* Content Flags Display */}
+        {selectedRoom && (
+          <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {/* Special Room Flags */}
+            {selectedRoom.isBossRoom && (
+              <Chip
+                label="Boss Room"
+                size="small"
+                sx={{
+                  bgcolor: 'error.main',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}
+              />
+            )}
+            {selectedRoom.isEntrance && (
+              <Chip
+                label="Entrance"
+                size="small"
+                sx={{
+                  bgcolor: 'success.main',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}
+              />
+            )}
+
+            {selectedRoom.isTreasureVault && (
+              <Chip
+                label="Treasure Vault"
+                size="small"
+                sx={{
+                  bgcolor: 'warning.main',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}
+              />
+            )}
+
+            {/* Content Type Flags */}
+            {selectedRoom.hasTraps && (
+              <Chip
+                icon={<WarningIcon />}
+                label="Traps"
+                size="small"
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: 'inherit',
+                  border: '1px solid rgba(255,255,255,0.3)'
+                }}
+              />
+            )}
+            {selectedRoom.hasTreasure && (
+              <Chip
+                icon={<DiamondIcon />}
+                label="Treasure"
+                size="small"
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: 'inherit',
+                  border: '1px solid rgba(255,255,255,0.3)'
+                }}
+              />
+            )}
+            {selectedRoom.hasMonsters && (
+              <Chip
+                icon={<PetsIcon />}
+                label="Monsters"
+                size="small"
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  color: 'inherit',
+                  border: '1px solid rgba(255,255,255,0.3)'
+                }}
+              />
+            )}
+          </Box>
+        )}
+
         {selectedRoom && (
           <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
             Room {selectedRoom.id} • {selectedRoom.width}×{selectedRoom.height} units

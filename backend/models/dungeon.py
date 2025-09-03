@@ -2,12 +2,11 @@
 Dungeon-related data models.
 """
 
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RoomShape(Enum):
@@ -16,30 +15,38 @@ class RoomShape(Enum):
     RECTANGLE = "rectangle"
     # Future: CIRCLE, POLYGON, etc.
 
+    def __str__(self) -> str:
+        return self.value
 
-@dataclass
-class Coordinates:
+    def __repr__(self) -> str:
+        return self.value
+
+
+class Coordinates(BaseModel):
     """2D coordinate system for dungeon layout."""
 
     x: int
     y: int
 
+    model_config = ConfigDict(use_enum_values=True)
+
     def __add__(self, other: "Coordinates") -> "Coordinates":
-        return Coordinates(self.x + other.x, self.y + other.y)
+        return Coordinates(x=self.x + other.x, y=self.y + other.y)
 
     def __sub__(self, other: "Coordinates") -> "Coordinates":
-        return Coordinates(self.x - other.x, self.y - other.y)
+        return Coordinates(x=self.x - other.x, y=self.y - other.y)
 
 
-@dataclass
-class CanvasViewport:
+class CanvasViewport(BaseModel):
     """Canvas viewport dimensions for automatic grid fitting."""
 
     min_x: int
     min_y: int
     max_x: int
     max_y: int
-    margin: int = 5  # Default margin around the dungeon
+    margin: int = Field(default=5)  # Default margin around the dungeon
+
+    model_config = ConfigDict(use_enum_values=True)
 
     @property
     def width(self) -> int:
@@ -55,7 +62,7 @@ class CanvasViewport:
     def center(self) -> Coordinates:
         """Center point of the viewport."""
         return Coordinates(
-            (self.min_x + self.max_x) // 2, (self.min_y + self.max_y) // 2
+            x=(self.min_x + self.max_x) // 2, y=(self.min_y + self.max_y) // 2
         )
 
     @classmethod
@@ -86,22 +93,28 @@ class CanvasViewport:
         )
 
 
-@dataclass
-class Room:
+class Room(BaseModel):
     """Represents a room in the dungeon."""
 
     id: str
     name: str
     description: str | None = None
     anchor: Coordinates | None = None  # Top-left anchor point
-    width: int = 0
-    height: int = 0
-    shape: RoomShape = RoomShape.RECTANGLE
+    width: int = Field(default=0)
+    height: int = Field(default=0)
+    shape: RoomShape = Field(default=RoomShape.RECTANGLE)
+
+    model_config = ConfigDict(use_enum_values=True)
 
     # Content flags determined during dimension generation
-    has_traps: bool = False
-    has_treasure: bool = False
-    has_monsters: bool = False
+    has_traps: bool = Field(default=False)
+    has_treasure: bool = Field(default=False)
+    has_monsters: bool = Field(default=False)
+
+    # Special room flags determined during layout analysis
+    is_boss_room: bool = Field(default=False)
+    is_entrance: bool = Field(default=False)
+    is_treasure_vault: bool = Field(default=False)
 
     @property
     def bounds(self) -> tuple[Coordinates, Coordinates]:
@@ -110,7 +123,7 @@ class Room:
             raise ValueError("Room anchor not set")
         return (
             self.anchor,
-            Coordinates(self.anchor.x + self.width, self.anchor.y + self.height),
+            Coordinates(x=self.anchor.x + self.width, y=self.anchor.y + self.height),
         )
 
     @property
@@ -119,17 +132,16 @@ class Room:
         if self.anchor is None:
             raise ValueError("Room anchor not set")
         return Coordinates(
-            self.anchor.x + self.width // 2, self.anchor.y + self.height // 2
+            x=self.anchor.x + self.width // 2, y=self.anchor.y + self.height // 2
         )
 
 
-@dataclass
-class Connection:
+class Connection(BaseModel):
     """Represents a connection between two rooms."""
 
     room_a_id: str
     room_b_id: str
-    connection_type: str = "door"  # door, passage, secret, etc.
+    connection_type: str = Field(default="door")  # door, passage, secret, etc.
     description: str | None = None
 
 
@@ -176,24 +188,24 @@ class RoomContent(BaseModel):
     monsters: list[MonsterData] | None = None
 
 
-@dataclass
-class DungeonLayout:
+class DungeonLayout(BaseModel):
     """Complete dungeon layout with rooms and connections."""
 
-    rooms: list[Room] = field(default_factory=list)
-    connections: list[Connection] = field(default_factory=list)
-    corridors: list["CorridorPath"] = field(default_factory=list)  # NEW: corridor paths
-    metadata: dict[str, Any] = field(default_factory=dict)
+    rooms: list[Room] = Field(default_factory=list)
+    connections: list[Connection] = Field(default_factory=list)
+    corridors: list["CorridorPath"] = Field(default_factory=list)  # NEW: corridor paths
+    metadata: dict[str, Any] = Field(default_factory=dict)
     viewport: CanvasViewport | None = None
 
-    def __post_init__(self):
+    model_config = ConfigDict(use_enum_values=True)
+
+    def model_post_init(self, __context: Any) -> None:
         """Calculate viewport after initialization if not provided."""
         if self.viewport is None and self.rooms:
             self.viewport = CanvasViewport.from_rooms(self.rooms)
 
 
-@dataclass
-class CorridorPath:
+class CorridorPath(BaseModel):
     """Represents the actual path of a corridor between rooms."""
 
     connection_id: str  # References the Connection
@@ -205,19 +217,18 @@ class CorridorPath:
     description: str | None = None
 
 
-@dataclass
-class DungeonGuidelines:
+class DungeonGuidelines(BaseModel):
     """Structured guidelines for dungeon generation."""
 
     theme: str
     atmosphere: str
-    difficulty: str = "medium"
-    room_count: int = 10
-    layout_type: str = "line_graph"
-    special_requirements: list[str] = field(default_factory=list)
-    prompt: str = ""  # Custom user prompt for dungeon generation
+    difficulty: str = Field(default="medium")
+    room_count: int = Field(default=10)
+    layout_type: str = Field(default="line_graph")
+    special_requirements: list[str] = Field(default_factory=list)
+    prompt: str = Field(default="")  # Custom user prompt for dungeon generation
 
-    room_size_distribution: dict[str, float] = field(
+    room_size_distribution: dict[str, float] = Field(
         default_factory=lambda: {
             "tiny": 0.1,
             "small": 0.35,
@@ -227,7 +238,7 @@ class DungeonGuidelines:
         }
     )
 
-    hallway_type_distribution: dict[str, float] = field(
+    hallway_type_distribution: dict[str, float] = Field(
         default_factory=lambda: {
             "narrow_passage": 0.2,
             "standard_door": 0.5,
@@ -237,29 +248,27 @@ class DungeonGuidelines:
     )
 
     # Room content generation percentages
-    percentage_rooms_trapped: float = 0.15  # 0-35% range
-    percentage_rooms_with_treasure: float = 0.20  # 10-20% range
-    percentage_rooms_with_monsters: float = 0.45  # 25-75% range
+    percentage_rooms_trapped: float = Field(default=0.15)  # 0-35% range
+    percentage_rooms_with_treasure: float = Field(default=0.20)  # 10-20% range
+    percentage_rooms_with_monsters: float = Field(default=0.45)  # 25-75% range
 
 
-@dataclass
-class GenerationOptions:
+class GenerationOptions(BaseModel):
     """Options for dungeon generation."""
 
-    include_contents: bool = True
-    include_atmosphere: bool = True
-    include_challenges: bool = True
-    include_treasures: bool = True
-    llm_model: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    include_contents: bool = Field(default=True)
+    include_atmosphere: bool = Field(default=True)
+    include_challenges: bool = Field(default=True)
+    include_treasures: bool = Field(default=True)
+    llm_model: str = Field(default="meta-llama/llama-4-scout-17b-16e-instruct")
 
 
-@dataclass
-class DungeonResult:
+class DungeonResult(BaseModel):
     """Complete result of dungeon generation."""
 
     dungeon: DungeonLayout
     guidelines: DungeonGuidelines
     options: GenerationOptions
-    generation_time: datetime = field(default_factory=datetime.now)
-    status: str = "success"
-    errors: list[str] = field(default_factory=list)
+    generation_time: datetime = Field(default_factory=datetime.now)
+    status: str = Field(default="success")
+    errors: list[str] = Field(default_factory=list)

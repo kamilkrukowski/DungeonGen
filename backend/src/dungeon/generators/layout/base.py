@@ -39,7 +39,7 @@ class PlacementConstraints:
 class BaseLayoutAlgorithm(ABC):
     """Base class for advanced layout algorithms."""
 
-    def __init__(self, seed: int | None = None):
+    def __init__(self, seed: int | None = None, room_sampler=None):
         """Initialize the layout algorithm."""
         if seed is not None:
             random.seed(seed)
@@ -54,6 +54,7 @@ class BaseLayoutAlgorithm(ABC):
         }
 
         self.constraints = PlacementConstraints()
+        self.room_sampler = room_sampler
 
     @abstractmethod
     def generate_layout(self, guidelines: DungeonGuidelines) -> DungeonLayout:
@@ -73,6 +74,13 @@ class BaseLayoutAlgorithm(ABC):
         Returns:
             List of (width, height) tuples
         """
+        # Use room sampler if available, otherwise fall back to local implementation
+        if self.room_sampler:
+            return self.room_sampler.sample_room_dimensions(
+                room_count, size_distribution
+            )
+
+        # Fallback to local implementation
         sizes = []
 
         for _ in range(room_count):

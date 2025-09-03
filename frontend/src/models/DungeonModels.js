@@ -92,7 +92,7 @@ export class Room {
   }
 
   static fromObject(obj) {
-    return new Room(
+    const room = new Room(
       obj.id,
       obj.name,
       obj.description,
@@ -104,6 +104,13 @@ export class Room {
       obj.has_treasure || false,
       obj.has_monsters || false
     );
+
+    // Add special room flags if they exist
+    if (obj.is_boss_room !== undefined) room.isBossRoom = obj.is_boss_room;
+    if (obj.is_entrance !== undefined) room.isEntrance = obj.is_entrance;
+    if (obj.is_treasure_vault !== undefined) room.isTreasureVault = obj.is_treasure_vault;
+
+    return room;
   }
 
   get bounds() {
