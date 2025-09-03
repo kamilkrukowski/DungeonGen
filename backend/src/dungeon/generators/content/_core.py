@@ -3,6 +3,7 @@ LLM-based content generation for dungeons.
 """
 
 import os
+from typing import Any
 
 from langchain_groq import ChatGroq
 from opentelemetry import trace
@@ -16,17 +17,21 @@ from models.dungeon import (
 from src.dungeon.generators.base import BaseContentGenerator
 from utils import simple_trace
 
-from ._chain import RoomContentGenerationChain
+from ._allocator import ContentAllocator
+from ._global_planner import GlobalPlanner
+from ._per_room import RoomContentGenerationChain
 
 
 class LLMContentGenerator(BaseContentGenerator):
-    """Generates room content using deterministic sampling for dimensions and LLM for creative content."""
+    """Generates room content using global planning and LLM for creative content."""
 
     def __init__(self):
         """Initialize the LLM content generator."""
         self.groq_api_key = os.environ.get("GROQ_API_KEY")
         self.chat_model = None
         self.content_chain = None
+        self.global_planner = GlobalPlanner()
+        self.content_allocator = ContentAllocator()
 
         if self.groq_api_key:
             self.chat_model = ChatGroq(
@@ -48,7 +53,7 @@ class LLMContentGenerator(BaseContentGenerator):
         options: GenerationOptions,
     ) -> list[RoomContent]:
         """
-        Generate detailed content for each room using LLM.
+        Generate detailed content for each room using global planning and LLM.
 
         Args:
             layout: Dungeon layout with rooms (content flags should be pre-sampled by RoomSampler)
@@ -61,46 +66,39 @@ class LLMContentGenerator(BaseContentGenerator):
         if not self.is_configured():
             raise ValueError("LLM is not configured")
 
+        # STAGE 1: Global Planning
+        # Generate treasure lists, monster encounters, and trap themes
+        content_plan = self.global_planner.plan_dungeon_content(
+            layout, guidelines, options
+        )
+
+        # STAGE 2: Content Allocation
+        # Distribute the globally planned content to individual rooms
+        room_allocations = self.content_allocator.allocate_content(layout, content_plan)
+
+        # Validate the allocation
+        allocation_validation = self.content_allocator.validate_allocation(
+            layout, content_plan, room_allocations
+        )
+
+        if not allocation_validation["is_valid"]:
+            print(
+                f"WARNING: Content allocation validation failed: {allocation_validation['errors']}"
+            )
+
+        # STAGE 3: Per-Room Content Generation
+        # Generate detailed content for each room using the allocated resources
         room_contents = []
 
         for room in layout.rooms:
-            # Content flags should already be set on the room object by RoomSampler
-            # Just extract them for the prompt
-            content_flags = []
-            unused_flags = []
-
-            if room.has_traps:
-                content_flags.append("traps")
-            else:
-                unused_flags.append("traps")
-            if room.has_treasure:
-                content_flags.append("treasure")
-            else:
-                unused_flags.append("treasure")
-            if room.has_monsters:
-                content_flags.append("monsters")
-            else:
-                unused_flags.append("monsters")
-
-            # Use the content chain to generate room content
-            chain_inputs = {
-                "room": room,
-                "layout": layout,
-                "guidelines": guidelines,
-                "content_flags": content_flags,
-                "unused_flags": unused_flags,
-            }
-
-            chain_result = self.content_chain.invoke(chain_inputs)
-            room_content = chain_result["room_content"]
-
+            room_content = self._generate_room_content_with_allocated_resources(
+                room, layout, guidelines, room_allocations.get(room.id, {})
+            )
             room_contents.append(room_content)
 
             # IMMEDIATELY update the room object in the layout so subsequent rooms can see it
             room.name = room_content.name
-            room.description = (
-                room_content.player_description
-            )  # Use player description for room description
+            room.description = room_content.player_description
 
             # Set span attributes for room update
             current_span = trace.get_current_span()
@@ -113,14 +111,68 @@ class LLMContentGenerator(BaseContentGenerator):
                 current_span.set_attribute(
                     f"room_{room.id}_purpose", room_content.purpose
                 )
-                current_span.set_attribute(
-                    f"room_{room.id}_content_flags_sampled", str(content_flags)
-                )
-                current_span.set_attribute(
-                    f"room_{room.id}_unused_flags_sampled", str(unused_flags)
-                )
 
         return room_contents
+
+    def _generate_room_content_with_allocated_resources(
+        self,
+        room: Any,
+        layout: DungeonLayout,
+        guidelines: DungeonGuidelines,
+        allocated_content: dict,
+    ) -> RoomContent:
+        """Generate content for a single room using allocated resources."""
+        # Extract content flags from allocated content
+        content_flags = []
+        unused_flags = []
+
+        if allocated_content.get("treasures"):
+            content_flags.append("treasure")
+        else:
+            unused_flags.append("treasure")
+
+        if allocated_content.get("monsters"):
+            content_flags.append("monsters")
+        else:
+            unused_flags.append("monsters")
+
+        if allocated_content.get("traps"):
+            content_flags.append("traps")
+        else:
+            unused_flags.append("traps")
+
+        # Use the content chain to generate room content
+        chain_inputs = {
+            "room": room,
+            "layout": layout,
+            "guidelines": guidelines,
+            "content_flags": content_flags,
+            "unused_flags": unused_flags,
+            "allocated_content": allocated_content,  # Pass allocated content for context
+        }
+
+        chain_result = self.content_chain.invoke(chain_inputs)
+        room_content = chain_result["room_content"]
+
+        # Enhance the room content with allocated resource details
+        room_content = self._enhance_with_allocated_content(
+            room_content, allocated_content
+        )
+
+        return room_content
+
+    def _enhance_with_allocated_content(
+        self, room_content: RoomContent, allocated_content: dict
+    ) -> RoomContent:
+        """Enhance room content with details from allocated resources."""
+        # This method can be used to add specific details from the allocated content
+        # For now, we'll just return the room content as-is
+        # In the future, this could be used to:
+        # - Add specific treasure names/descriptions
+        # - Include monster stats from the global plan
+        # - Add trap DCs and damage from the global plan
+
+        return room_content
 
     def _generate_basic_content_fallback(
         self, layout: DungeonLayout, guidelines: DungeonGuidelines

@@ -17,6 +17,7 @@ class RoomContentPromptBuilder:
         guidelines: DungeonGuidelines,
         content_flags: list[str],
         unused_flags: list[str],
+        allocated_content: dict = None,
     ) -> str:
         """Build the complete prompt for room content generation."""
         # Build the JSON structure based on content flags
@@ -26,6 +27,13 @@ class RoomContentPromptBuilder:
 
         # Build comprehensive dungeon context
         dungeon_context = self._build_dungeon_context(layout, guidelines, room)
+
+        # Build allocated content context if available
+        allocated_content_context = ""
+        if allocated_content:
+            allocated_content_context = self._build_allocated_content_context(
+                allocated_content
+            )
 
         # Format content flags text
         content_flags_text = (
@@ -38,6 +46,8 @@ class RoomContentPromptBuilder:
         return f"""You are an expert dungeon master creating content for a cohesive dungeon experience.
 
 {dungeon_context}
+
+{allocated_content_context}
 
 CURRENT ROOM DETAILS:
 Room ID: {room.id}
@@ -246,3 +256,60 @@ Room Size: {current_room.width}x{current_room.height} units"""
             context_lines.append(f"- {room_name} {content_summary}: {room_description}")
 
         return "\n".join(context_lines)
+
+    def _build_allocated_content_context(self, allocated_content: dict) -> str:
+        """Build context about allocated content for this room."""
+        if not allocated_content:
+            return ""
+
+        context_parts = []
+
+        # Add treasure context
+        if allocated_content.get("treasures"):
+            treasures = allocated_content["treasures"]
+            treasure_info = []
+            for treasure in treasures:
+                tier = treasure.get("tier", "unknown")
+                treasure_type = treasure.get("type", "unknown")
+                value = treasure.get("base_value", 0)
+                treasure_info.append(
+                    f"- {tier.title()} {treasure_type} (value: {value})"
+                )
+
+            context_parts.append("ALLOCATED TREASURE:\n" + "\n".join(treasure_info))
+
+        # Add monster context
+        if allocated_content.get("monsters"):
+            monsters = allocated_content["monsters"]
+            monster_info = []
+            for monster in monsters:
+                cr = monster.get("challenge_rating", 1)
+                monster_type = monster.get("monster_type", "unknown")
+                group_size = monster.get("group_size", 1)
+                difficulty = monster.get("encounter_difficulty", "medium")
+                monster_info.append(
+                    f"- {monster_type} (CR {cr}, group size {group_size}, {difficulty})"
+                )
+
+            context_parts.append("ALLOCATED MONSTERS:\n" + "\n".join(monster_info))
+
+        # Add trap context
+        if allocated_content.get("traps"):
+            traps = allocated_content["traps"]
+            trap_info = []
+            for trap in traps:
+                tier = trap.get("trap_tier", "unknown")
+                trap_type = trap.get("trap_type", "unknown")
+                dc = trap.get("dc", 10)
+                damage = trap.get("damage", "1d4")
+                danger = trap.get("danger_level", "medium")
+                trap_info.append(
+                    f"- {tier.title()} {trap_type} (DC {dc}, damage {damage}, {danger})"
+                )
+
+            context_parts.append("ALLOCATED TRAPS:\n" + "\n".join(trap_info))
+
+        if context_parts:
+            return "ALLOCATED CONTENT FOR THIS ROOM:\n" + "\n".join(context_parts)
+
+        return ""

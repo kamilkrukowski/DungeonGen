@@ -18,6 +18,17 @@ from utils import simple_trace
 # Load environment variables
 load_dotenv()
 
+# Check GROQ API key availability
+groq_api_key = os.environ.get("GROQ_API_KEY")
+if groq_api_key:
+    if len(groq_api_key) > 6:
+        masked_key = groq_api_key[:3] + "***" + groq_api_key[-3:]
+    else:
+        masked_key = "***" + groq_api_key[-3:] if len(groq_api_key) > 3 else "***"
+    print(f"✓ GROQ API key found: {masked_key}")
+else:
+    print("⚠️  GROQ API key not found. Set GROQ_API_KEY environment variable.")
+
 app = Flask(__name__)
 CORS(
     app,

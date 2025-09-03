@@ -132,7 +132,31 @@ class GenerateStructuredDungeon(Resource):
             if result.status == "error":
                 # Determine the appropriate HTTP status code based on error types
                 error_message = " ".join(result.errors).lower()
+
+                # Check for API key errors first
                 if any(
+                    keyword in error_message
+                    for keyword in [
+                        "invalid api key",
+                        "invalid_api_key",
+                        "401",
+                        "unauthorized",
+                        "authentication",
+                    ]
+                ):
+                    return (
+                        ErrorResponse(
+                            error="Invalid API Key",
+                            error_type="invalid_api_key",
+                            status_code=401,
+                            details="The GROQ API key is invalid or missing. Please check your API key configuration.",
+                            traceback="API Key Error Details:\n"
+                            + "\n".join(result.errors),
+                        ).dict(),
+                        401,
+                    )
+                # Check for connection/network errors
+                elif any(
                     keyword in error_message
                     for keyword in [
                         "connection",

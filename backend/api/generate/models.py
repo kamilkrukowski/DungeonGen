@@ -15,6 +15,7 @@ class ErrorType(str, Enum):
     CONNECTION_ERROR = "connection_error"
     GENERATION_ERROR = "generation_error"
     INTERNAL_ERROR = "internal_error"
+    INVALID_API_KEY = "invalid_api_key"
 
 
 class DungeonGenerateRequest(BaseModel):

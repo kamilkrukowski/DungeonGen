@@ -45,7 +45,14 @@ class RoomContentGenerationChain(Chain):
     @property
     def input_keys(self) -> list[str]:
         """Input keys for the chain."""
-        return ["room", "layout", "guidelines", "content_flags", "unused_flags"]
+        return [
+            "room",
+            "layout",
+            "guidelines",
+            "content_flags",
+            "unused_flags",
+            "allocated_content",
+        ]
 
     @property
     def output_keys(self) -> list[str]:
@@ -64,10 +71,11 @@ class RoomContentGenerationChain(Chain):
         guidelines = inputs["guidelines"]
         content_flags = inputs["content_flags"]
         unused_flags = inputs["unused_flags"]
+        allocated_content = inputs.get("allocated_content", {})
 
         # Build the prompt using the prompt builder
         prompt = self.prompt_builder.build_prompt(
-            room, layout, guidelines, content_flags, unused_flags
+            room, layout, guidelines, content_flags, unused_flags, allocated_content
         )
 
         # Generate response using LLM
