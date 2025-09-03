@@ -72,6 +72,29 @@ class LLMContentGenerator(BaseContentGenerator):
             layout, guidelines, options
         )
 
+        # Set the generated dungeon name in the layout
+        layout.name = content_plan.name
+        print(f"DEBUG: Set dungeon name to: '{content_plan.name}'")
+
+        # Add span attributes for global planning results
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute(
+                "content_generation.dungeon_name", content_plan.name
+            )
+            current_span.set_attribute(
+                "content_generation.treasure_count", len(content_plan.treasures)
+            )
+            current_span.set_attribute(
+                "content_generation.monster_count", len(content_plan.monsters)
+            )
+            current_span.set_attribute(
+                "content_generation.trap_count", len(content_plan.traps)
+            )
+            current_span.set_attribute(
+                "content_generation.total_value", content_plan.total_value
+            )
+
         # STAGE 2: Content Allocation
         # Distribute the globally planned content to individual rooms
         room_allocations = self.content_allocator.allocate_content(layout, content_plan)
@@ -84,6 +107,25 @@ class LLMContentGenerator(BaseContentGenerator):
         if not allocation_validation["is_valid"]:
             print(
                 f"WARNING: Content allocation validation failed: {allocation_validation['errors']}"
+            )
+
+        # Add span attributes for allocation validation
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute(
+                "content_generation.allocation_valid", allocation_validation["is_valid"]
+            )
+            current_span.set_attribute(
+                "content_generation.allocation_warnings",
+                str(allocation_validation.get("warnings", [])),
+            )
+            current_span.set_attribute(
+                "content_generation.allocation_errors",
+                str(allocation_validation.get("errors", [])),
+            )
+            current_span.set_attribute(
+                "content_generation.allocation_stats",
+                str(allocation_validation.get("allocation_stats", {})),
             )
 
         # STAGE 3: Per-Room Content Generation

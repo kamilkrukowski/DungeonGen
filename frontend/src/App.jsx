@@ -138,7 +138,7 @@ function DungeonContent({
           <Card sx={{ mb: 3, backgroundColor: '#f8f9fa' }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-                Dungeon Layout Visualization
+                {parsedDungeonData?.dungeon?.name || 'Dungeon Layout Visualization'}
               </Typography>
               <Box sx={{
                 width: '100%',
@@ -180,7 +180,7 @@ function DungeonContent({
           <Card sx={{ mb: 2, backgroundColor: '#f8f9fa' }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-                Generated Dungeon Structure (JSON)
+                {dungeonResult?.dungeon?.name || 'Generated Dungeon Structure (JSON)'}
               </Typography>
               <TextField
                 fullWidth

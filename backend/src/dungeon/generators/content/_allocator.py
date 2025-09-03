@@ -4,6 +4,8 @@ Content allocation for dungeon generation.
 
 from typing import Any
 
+from opentelemetry import trace
+
 from models.dungeon import DungeonLayout, Room
 from utils import simple_trace
 
@@ -48,6 +50,46 @@ class ContentAllocator:
         for room in layout.rooms:
             room_content = self._allocate_room_content(room, treasures, monsters, traps)
             room_allocations[room.id] = room_content
+
+        # Add span attributes for allocation results
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute(
+                "content_allocator.total_rooms", len(layout.rooms)
+            )
+            current_span.set_attribute(
+                "content_allocator.rooms_with_treasure",
+                sum(1 for room in layout.rooms if room.has_treasure),
+            )
+            current_span.set_attribute(
+                "content_allocator.rooms_with_monsters",
+                sum(1 for room in layout.rooms if room.has_monsters),
+            )
+            current_span.set_attribute(
+                "content_allocator.rooms_with_traps",
+                sum(1 for room in layout.rooms if room.has_traps),
+            )
+            current_span.set_attribute(
+                "content_allocator.treasures_allocated",
+                sum(
+                    len(room_content.get("treasures", []))
+                    for room_content in room_allocations.values()
+                ),
+            )
+            current_span.set_attribute(
+                "content_allocator.monsters_allocated",
+                sum(
+                    len(room_content.get("monsters", []))
+                    for room_content in room_allocations.values()
+                ),
+            )
+            current_span.set_attribute(
+                "content_allocator.traps_allocated",
+                sum(
+                    len(room_content.get("traps", []))
+                    for room_content in room_allocations.values()
+                ),
+            )
 
         return room_allocations
 

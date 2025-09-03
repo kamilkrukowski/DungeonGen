@@ -132,32 +132,37 @@ class PoissonDiscLayoutGenerator(BaseLayoutAlgorithm):
             # Update the centered rooms with the sampled flags
             centered_rooms = temp_layout.rooms
 
-        return DungeonLayout(
+        # Create base layout
+        base_layout = DungeonLayout(
             rooms=centered_rooms,
             connections=connections,
-            corridors=corridors,  # NEW: include corridor paths
-            metadata={
-                "layout_type": "poisson_disc",
-                "room_count": len(centered_rooms),
-                "algorithm": "poisson_disc_sampling_with_spring_optimization",
-                "min_distance": self.min_distance,
-                "size_distribution": guidelines.room_size_distribution,
-                "spring_optimization": {
-                    "spring_constant": spring_config.spring_constant,
-                    "damping": spring_config.damping,
-                    "max_iterations": spring_config.max_iterations,
-                    "convergence_threshold": spring_config.convergence_threshold,
-                    "discrete_clamp_interval": spring_config.discrete_clamp_interval,
-                    "repulsion_strength": spring_config.repulsion_strength,
-                    "repulsion_radius": spring_config.repulsion_radius,
-                    "planarity_strength": spring_config.planarity_strength,
-                    "enable_planarity": spring_config.enable_planarity,
-                },
-                "quality_metrics": quality_metrics,
-                "hallway_stats": hallway_stats,
-                "corridor_count": len(corridors),  # NEW: add corridor count to metadata
-            },
+            corridors=corridors,
         )
+
+        # Add metadata using the new method
+        metadata = {
+            "layout_type": "poisson_disc",
+            "room_count": len(centered_rooms),
+            "algorithm": "poisson_disc_sampling_with_spring_optimization",
+            "min_distance": self.min_distance,
+            "size_distribution": guidelines.room_size_distribution,
+            "spring_optimization": {
+                "spring_constant": spring_config.spring_constant,
+                "damping": spring_config.damping,
+                "max_iterations": spring_config.max_iterations,
+                "convergence_threshold": spring_config.convergence_threshold,
+                "discrete_clamp_interval": spring_config.discrete_clamp_interval,
+                "repulsion_strength": spring_config.repulsion_strength,
+                "repulsion_radius": spring_config.repulsion_radius,
+                "planarity_strength": spring_config.planarity_strength,
+                "enable_planarity": spring_config.enable_planarity,
+            },
+            "quality_metrics": quality_metrics,
+            "hallway_stats": hallway_stats,
+            "corridor_count": len(corridors),
+        }
+
+        return base_layout.update_values(metadata=metadata)
 
     def generate_corridors_for_layout(
         self, layout: "DungeonLayout", guidelines: "DungeonGuidelines"
@@ -188,16 +193,8 @@ class PoissonDiscLayoutGenerator(BaseLayoutAlgorithm):
             layout.rooms, layout.connections, hallway_specs
         )
 
-        # Create new layout with corridors
-        from models.dungeon import DungeonLayout
-
-        return DungeonLayout(
-            rooms=layout.rooms,
-            connections=layout.connections,
-            corridors=corridors,
-            metadata=layout.metadata,
-            viewport=layout.viewport,
-        )
+        # Update existing layout with corridors using the new method
+        return layout.update_values(corridors=corridors)
 
     def _poisson_disc_sampling(
         self, room_sizes: list[tuple[int, int]]
@@ -671,10 +668,14 @@ class PoissonDiscLayoutGenerator(BaseLayoutAlgorithm):
             return rooms
 
         # Calculate current dungeon bounds
-        min_x = min(room.anchor.x for room in rooms if room.anchor)
-        max_x = max(room.anchor.x + room.width for room in rooms if room.anchor)
-        min_y = min(room.anchor.y for room in rooms if room.anchor)
-        max_y = max(room.anchor.y + room.height for room in rooms if room.anchor)
+        rooms_with_anchors = [room for room in rooms if room.anchor]
+        if not rooms_with_anchors:
+            return rooms
+
+        min_x = min(room.anchor.x for room in rooms_with_anchors)
+        max_x = max(room.anchor.x + room.width for room in rooms_with_anchors)
+        min_y = min(room.anchor.y for room in rooms_with_anchors)
+        max_y = max(room.anchor.y + room.height for room in rooms_with_anchors)
 
         # Calculate current dungeon center
         current_center_x = (min_x + max_x) / 2
@@ -710,3 +711,47 @@ class PoissonDiscLayoutGenerator(BaseLayoutAlgorithm):
     def get_supported_layout_types(self) -> list[str]:
         """Return list of supported layout types."""
         return ["poisson_disc", "organic"]
+
+    def update_layout_corridors(
+        self, layout: DungeonLayout, guidelines: DungeonGuidelines
+    ) -> DungeonLayout:
+        """
+        Update corridors for an existing layout using the new update methods.
+
+        This method demonstrates how to use the new update_corridors method
+        to avoid recreating the entire DungeonLayout object.
+
+        Args:
+            layout: Existing dungeon layout
+            guidelines: Dungeon guidelines
+
+        Returns:
+            Updated layout with new corridors
+        """
+        # Generate hallway specs for the existing connections
+        hallway_sampler = HallwaySampler(seed=random.randint(1, 10000))
+        hallway_specs = hallway_sampler.sample_hallways(
+            layout.rooms, layout.connections, guidelines
+        )
+
+        # Generate corridor paths
+        from ..postprocess import CorridorGenerator
+
+        corridor_generator = CorridorGenerator(seed=random.randint(1, 10000))
+        corridors = corridor_generator.generate_corridors(
+            layout.rooms, layout.connections, hallway_specs
+        )
+
+        # Update the layout with new corridors and metadata using the new method
+        # This avoids recreating the entire DungeonLayout object
+        corridor_metadata = {
+            "corridor_count": len(corridors),
+            "corridor_generation_time": "updated",
+            "hallway_stats": hallway_sampler.get_hallway_stats(hallway_specs),
+        }
+
+        # Create updated metadata
+        updated_metadata = layout.metadata.copy()
+        updated_metadata.update(corridor_metadata)
+
+        return layout.update_values(corridors=corridors, metadata=updated_metadata)

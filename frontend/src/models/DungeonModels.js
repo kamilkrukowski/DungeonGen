@@ -248,7 +248,8 @@ export class RoomContent {
 }
 
 export class DungeonLayout {
-  constructor(rooms = [], connections = [], corridors = [], metadata = {}, viewport = null) {
+  constructor(name = "Unnamed Dungeon", rooms = [], connections = [], corridors = [], metadata = {}, viewport = null) {
+    this.name = name;
     this.rooms = rooms;
     this.connections = connections;
     this.corridors = corridors;  // NEW: corridor paths
@@ -276,7 +277,7 @@ export class DungeonLayout {
 
     const metadata = { ...obj.metadata, roomContents };
 
-    return new DungeonLayout(rooms, connections, corridors, metadata, viewport);
+    return new DungeonLayout(obj.name || "Unnamed Dungeon", rooms, connections, corridors, metadata, viewport);
   }
 
   getRoomContent(roomId) {

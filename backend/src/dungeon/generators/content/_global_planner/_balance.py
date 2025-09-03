@@ -4,6 +4,8 @@ Balance calculations for dungeon content generation.
 
 from typing import Any
 
+from opentelemetry import trace
+
 from models.dungeon import DungeonLayout
 from utils import simple_trace
 
@@ -32,6 +34,20 @@ class BalanceCalculator:
             if isinstance(treasure.get("base_value"), int | float):
                 total_value += treasure["base_value"]
 
+        # Add span attributes for balance calculation
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute(
+                "balance_calculator.treasure_count", len(treasure_list)
+            )
+            current_span.set_attribute(
+                "balance_calculator.total_value", round(total_value, 2)
+            )
+            current_span.set_attribute(
+                "balance_calculator.average_value",
+                round(total_value / len(treasure_list), 2) if treasure_list else 0,
+            )
+
         return round(total_value, 2)
 
     @simple_trace("BalanceCalculator.calculate_difficulty_curve")
@@ -54,6 +70,24 @@ class BalanceCalculator:
         for room in layout.rooms:
             room_difficulty = self._calculate_room_difficulty(room, monster_encounters)
             difficulty_curve.append(room_difficulty)
+
+        # Add span attributes for difficulty curve calculation
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute(
+                "balance_calculator.room_count", len(layout.rooms)
+            )
+            current_span.set_attribute(
+                "balance_calculator.monster_count", len(monster_encounters)
+            )
+            current_span.set_attribute(
+                "balance_calculator.difficulty_range",
+                f"{min(difficulty_curve)}-{max(difficulty_curve)}",
+            )
+            current_span.set_attribute(
+                "balance_calculator.difficulty_progression",
+                str([round(d, 2) for d in difficulty_curve[:5]]),
+            )  # First 5 for brevity
 
         return difficulty_curve
 

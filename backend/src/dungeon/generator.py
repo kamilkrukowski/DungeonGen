@@ -129,13 +129,8 @@ class DungeonGenerator:
         self, layout: DungeonLayout, room_contents: list
     ) -> DungeonLayout:
         """Apply LLM-generated contents to the layout."""
-        print(
-            f"DEBUG: _apply_contents_to_layout called with {len(room_contents)} room contents"
-        )
-
         # Create content map for metadata
         content_map = {content.room_id: content for content in room_contents}
-        print(f"DEBUG: Created content map with keys: {list(content_map.keys())}")
 
         # Update room objects with new names and descriptions
         updated_rooms = []
@@ -158,16 +153,11 @@ class DungeonGenerator:
                     is_treasure_vault=room.is_treasure_vault,  # Preserve special room flags
                 )
                 updated_rooms.append(updated_room)
-                print(f"DEBUG: Updated room {room.id} with content")
             else:
                 updated_rooms.append(room)
-                print(f"DEBUG: Room {room.id} has no content")
 
-        # Ensure metadata is properly initialized
-        metadata = layout.metadata.copy() if layout.metadata else {}
-        metadata["room_contents"] = content_map
-        print(f"DEBUG: Final metadata keys: {list(metadata.keys())}")
+        # Update existing layout with new rooms and metadata using the new method
+        updated_metadata = layout.metadata.copy()
+        updated_metadata["room_contents"] = content_map
 
-        return DungeonLayout(
-            rooms=updated_rooms, connections=layout.connections, metadata=metadata
-        )
+        return layout.update_values(rooms=updated_rooms, metadata=updated_metadata)

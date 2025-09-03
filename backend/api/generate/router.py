@@ -126,7 +126,24 @@ class GenerateStructuredDungeon(Resource):
             )
 
             # Generate dungeon using the generator
-            result = dungeon_generator.generate_dungeon(guidelines, options)
+            try:
+                result = dungeon_generator.generate_dungeon(guidelines, options)
+            except Exception as e:
+                import traceback
+
+                error_traceback = traceback.format_exc()
+                print(f"ERROR: Dungeon generation failed with exception: {e}")
+                print(f"ERROR: Full traceback:\n{error_traceback}")
+                return (
+                    ErrorResponse(
+                        error="Generation failed due to an internal error",
+                        error_type="generation_error",
+                        status_code=500,
+                        details=f"Generation failed: {str(e)}",
+                        traceback=f"Generation Exception:\n{str(e)}\n\nFull Traceback:\n{error_traceback}",
+                    ).dict(),
+                    500,
+                )
 
             # Check if generation failed and return appropriate status code
             if result.status == "error":

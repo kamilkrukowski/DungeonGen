@@ -113,13 +113,12 @@ class RoomSampler:
         )
 
         # Combine strategies - prefer well-connected rooms on the edge
-        for room in rooms_by_connections[:3]:  # Top 3 most connected
-            if (
-                room.center
-                and room.center.x
-                <= min(r.center.x for r in layout.rooms if r.center) + 5
-            ):
-                return room
+        rooms_with_centers = [r for r in layout.rooms if r.center]
+        if rooms_with_centers:
+            min_x = min(r.center.x for r in rooms_with_centers)
+            for room in rooms_by_connections[:3]:  # Top 3 most connected
+                if room.center and room.center.x <= min_x + 5:
+                    return room
 
         # Fallback to most connected
         return rooms_by_connections[0] if rooms_by_connections else None

@@ -4,6 +4,8 @@ Treasure planning for dungeon content generation.
 
 from typing import Any
 
+from opentelemetry import trace
+
 from models.dungeon import DungeonGuidelines, GenerationOptions
 from utils import simple_trace
 
@@ -67,6 +69,25 @@ class TreasurePlanner:
         import random
 
         random.shuffle(treasure_list)
+
+        # Add span attributes for treasure generation results
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute("treasure_planner.room_count", room_count)
+            current_span.set_attribute(
+                "treasure_planner.target_total_value", target_total
+            )
+            current_span.set_attribute(
+                "treasure_planner.actual_total_value",
+                sum(t.get("base_value", 0) for t in treasure_list),
+            )
+            current_span.set_attribute(
+                "treasure_planner.tier_distribution", str(tier_distribution)
+            )
+            current_span.set_attribute("treasure_planner.theme", guidelines.theme)
+            current_span.set_attribute(
+                "treasure_planner.difficulty", guidelines.difficulty
+            )
 
         return treasure_list
 

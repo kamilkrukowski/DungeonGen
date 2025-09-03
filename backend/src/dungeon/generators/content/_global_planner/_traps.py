@@ -4,6 +4,8 @@ Trap planning for dungeon content generation.
 
 from typing import Any
 
+from opentelemetry import trace
+
 from models.dungeon import DungeonGuidelines, GenerationOptions
 from utils import simple_trace
 
@@ -73,6 +75,29 @@ class TrapPlanner:
                 guidelines=guidelines,
             )
             trap_themes.append(trap_theme)
+
+        # Add span attributes for trap generation results
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute("trap_planner.room_count", room_count)
+            current_span.set_attribute("trap_planner.total_traps", len(trap_themes))
+
+            # Handle empty trap_themes case
+            if trap_themes:
+                current_span.set_attribute(
+                    "trap_planner.dc_range",
+                    f"{min(t.get('dc', 0) for t in trap_themes)}-{max(t.get('dc', 0) for t in trap_themes)}",
+                )
+                current_span.set_attribute(
+                    "trap_planner.tier_distribution",
+                    str([t.get("trap_tier", "unknown") for t in trap_themes[:5]]),
+                )  # First 5 for brevity
+            else:
+                current_span.set_attribute("trap_planner.dc_range", "N/A")
+                current_span.set_attribute("trap_planner.tier_distribution", "[]")
+
+            current_span.set_attribute("trap_planner.theme", guidelines.theme)
+            current_span.set_attribute("trap_planner.difficulty", guidelines.difficulty)
 
         return trap_themes
 

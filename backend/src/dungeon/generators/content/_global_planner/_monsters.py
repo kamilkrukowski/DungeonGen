@@ -4,6 +4,8 @@ Monster encounter planning for dungeon content generation.
 
 from typing import Any
 
+from opentelemetry import trace
+
 from models.dungeon import DungeonGuidelines, GenerationOptions
 from utils import simple_trace
 
@@ -55,6 +57,32 @@ class MonsterPlanner:
                 guidelines=guidelines,
             )
             encounters.append(encounter)
+
+        # Add span attributes for monster generation results
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute("monster_planner.room_count", room_count)
+            current_span.set_attribute(
+                "monster_planner.total_encounters", len(encounters)
+            )
+
+            # Handle empty encounters case
+            if encounters:
+                current_span.set_attribute(
+                    "monster_planner.cr_range",
+                    f"{min(e.get('challenge_rating', 0) for e in encounters)}-{max(e.get('challenge_rating', 0) for e in encounters)}",
+                )
+            else:
+                current_span.set_attribute("monster_planner.cr_range", "N/A")
+
+            current_span.set_attribute(
+                "monster_planner.difficulty_progression",
+                str([round(p, 2) for p in difficulty_progression[:5]]),
+            )  # First 5 for brevity
+            current_span.set_attribute("monster_planner.theme", guidelines.theme)
+            current_span.set_attribute(
+                "monster_planner.difficulty", guidelines.difficulty
+            )
 
         return encounters
 

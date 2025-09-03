@@ -71,10 +71,14 @@ class CanvasViewport(BaseModel):
         if not rooms:
             return cls(min_x=-10, min_y=-10, max_x=10, max_y=10, margin=margin)
 
-        min_x = min(room.anchor.x for room in rooms if room.anchor)
-        max_x = max(room.anchor.x + room.width for room in rooms if room.anchor)
-        min_y = min(room.anchor.y for room in rooms if room.anchor)
-        max_y = max(room.anchor.y + room.height for room in rooms if room.anchor)
+        rooms_with_anchors = [room for room in rooms if room.anchor]
+        if not rooms_with_anchors:
+            return cls(min_x=-10, min_y=-10, max_x=10, max_y=10, margin=margin)
+
+        min_x = min(room.anchor.x for room in rooms_with_anchors)
+        max_x = max(room.anchor.x + room.width for room in rooms_with_anchors)
+        min_y = min(room.anchor.y for room in rooms_with_anchors)
+        max_y = max(room.anchor.y + room.height for room in rooms_with_anchors)
 
         # Calculate viewport dimensions
         viewport_width = max_x - min_x + 2.0 * margin
@@ -191,6 +195,7 @@ class RoomContent(BaseModel):
 class DungeonLayout(BaseModel):
     """Complete dungeon layout with rooms and connections."""
 
+    name: str = Field(default="Unnamed Dungeon")
     rooms: list[Room] = Field(default_factory=list)
     connections: list[Connection] = Field(default_factory=list)
     corridors: list["CorridorPath"] = Field(default_factory=list)  # NEW: corridor paths
@@ -203,6 +208,71 @@ class DungeonLayout(BaseModel):
         """Calculate viewport after initialization if not provided."""
         if self.viewport is None and self.rooms:
             self.viewport = CanvasViewport.from_rooms(self.rooms)
+
+    def update_values(
+        self,
+        *,
+        rooms: list[Room] | None = None,
+        connections: list[Connection] | None = None,
+        corridors: list["CorridorPath"] | None = None,
+        metadata: dict[str, Any] | None = None,
+        name: str | None = None,
+        viewport: CanvasViewport | None = None,
+    ) -> "DungeonLayout":
+        """
+        Update specific attributes without recreating the entire layout.
+
+        This method solves the "arms race" problem where adding new attributes
+        to DungeonLayout required updating all recreation sites. Now you can
+        update only what you need while preserving all other attributes.
+
+        Examples:
+            # Update only corridors
+            layout.update_values(corridors=new_corridors)
+
+            # Update rooms and metadata at once
+            layout.update_values(rooms=new_rooms, metadata=new_metadata)
+
+            # Update multiple attributes
+            layout.update_values(
+                rooms=new_rooms,
+                corridors=new_corridors,
+                metadata=updated_metadata
+            )
+
+        Args:
+            rooms: New rooms (if None, keeps existing)
+            connections: New connections (if None, keeps existing)
+            corridors: New corridors (if None, keeps existing)
+            metadata: New metadata (if None, keeps existing)
+            name: New name (if None, keeps existing)
+            viewport: New viewport (if None, keeps existing)
+
+        Returns:
+            Updated DungeonLayout with specified changes
+        """
+        return DungeonLayout(
+            name=name if name is not None else self.name,
+            rooms=rooms if rooms is not None else self.rooms,
+            connections=connections if connections is not None else self.connections,
+            corridors=corridors if corridors is not None else self.corridors,
+            metadata=metadata if metadata is not None else self.metadata,
+            viewport=viewport if viewport is not None else self.viewport,
+        )
+
+    def add_metadata(self, additional_metadata: dict[str, Any]) -> "DungeonLayout":
+        """
+        Add metadata to existing metadata without recreating the entire layout.
+
+        Args:
+            additional_metadata: Additional metadata to merge
+
+        Returns:
+            Updated DungeonLayout with merged metadata
+        """
+        merged_metadata = self.metadata.copy()
+        merged_metadata.update(additional_metadata)
+        return self.update_values(metadata=merged_metadata)
 
 
 class CorridorPath(BaseModel):
