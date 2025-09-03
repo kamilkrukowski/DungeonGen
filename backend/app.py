@@ -27,9 +27,9 @@ if groq_api_key:
         masked_key = groq_api_key[:3] + "***" + groq_api_key[-3:]
     else:
         masked_key = "***" + groq_api_key[-3:] if len(groq_api_key) > 3 else "***"
-    print(f"✓ GROQ API key found: {masked_key}")
+
 else:
-    print("⚠️  GROQ API key not found. Set GROQ_API_KEY environment variable.")
+    pass
 
 
 def extract_exception_location(exc_info: tuple | None = None) -> dict:
@@ -77,6 +77,14 @@ def extract_exception_location(exc_info: tuple | None = None) -> dict:
 
 
 app = Flask(__name__)
+
+# Configure Flask for proper UTF-8 handling
+app.config["JSON_AS_ASCII"] = False
+app.config["JSONIFY_PRETTYPRINT_REGULAR"] = True
+
+# Ensure proper encoding for request handling
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
+
 CORS(
     app,
     origins=["http://localhost:3000", "http://frontend:3000"],

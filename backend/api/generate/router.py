@@ -223,30 +223,46 @@ class GenerateStructuredDungeon(Resource):
                     400,
                 )
 
+            # Ensure proper UTF-8 encoding for guidelines text
+            try:
+                # Validate and normalize UTF-8 encoding
+                if isinstance(dungeon_request.guidelines, str):
+                    # Ensure the string is properly encoded as UTF-8
+                    guidelines_text = dungeon_request.guidelines.encode("utf-8").decode(
+                        "utf-8"
+                    )
+                    # Normalize unicode characters
+                    import unicodedata
+
+                    guidelines_text = unicodedata.normalize("NFC", guidelines_text)
+
+                else:
+                    guidelines_text = str(dungeon_request.guidelines)
+            except UnicodeError as e:
+                return (
+                    create_error_response(
+                        error="Invalid text encoding",
+                        error_type="encoding_error",
+                        status_code=400,
+                        details=f"Text contains invalid characters: {str(e)}",
+                        exc_info=sys.exc_info(),
+                        additional_context="Text encoding validation failed - ensure input is valid UTF-8",
+                    ).dict(),
+                    400,
+                )
+
             # Parse user guidelines into structured format
-            guidelines = parse_user_guidelines(dungeon_request.guidelines)
-            print(
-                f"DEBUG: Initial guidelines: room_count={guidelines.room_count}, layout_type={guidelines.layout_type}",
-                flush=True,
-            )
+            guidelines = parse_user_guidelines(guidelines_text)
 
             # Create generation options
             options = GenerationOptions()
             if dungeon_request.options:
-                print(f"DEBUG: Applying options: {dungeon_request.options}", flush=True)
                 # Apply any custom options to guidelines
                 for key, value in dungeon_request.options.items():
                     if hasattr(guidelines, key):
-                        print(f"DEBUG: Setting guidelines.{key} = {value}", flush=True)
                         setattr(guidelines, key, value)
                     elif hasattr(options, key):
-                        print(f"DEBUG: Setting options.{key} = {value}", flush=True)
                         setattr(options, key, value)
-
-            print(
-                f"DEBUG: Final guidelines: room_count={guidelines.room_count}, layout_type={guidelines.layout_type}",
-                flush=True,
-            )
 
             # Generate dungeon using the generator
             try:
