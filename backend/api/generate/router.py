@@ -193,6 +193,11 @@ class GenerateStructuredDungeon(Resource):
     def post(self):
         """Generate a structured dungeon based on user guidelines."""
         try:
+            # Get current span to add attributes
+            from opentelemetry import trace
+
+            current_span = trace.get_current_span()
+
             # Validate request data
             data = request.get_json()
             if not data:
@@ -210,6 +215,16 @@ class GenerateStructuredDungeon(Resource):
             # Validate request using Pydantic model
             try:
                 dungeon_request = DungeonGenerateRequest(**data)
+
+                # Add user prompt to span attributes
+                if current_span and dungeon_request.guidelines:
+                    current_span.set_attribute(
+                        "user.prompt", dungeon_request.guidelines
+                    )
+                    current_span.set_attribute(
+                        "user.prompt.length", len(dungeon_request.guidelines)
+                    )
+
             except Exception as e:
                 return (
                     create_error_response(

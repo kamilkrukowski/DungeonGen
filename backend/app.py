@@ -23,6 +23,9 @@ load_dotenv()
 # Check GROQ API key availability
 groq_api_key = os.environ.get("GROQ_API_KEY")
 if groq_api_key:
+    # Strip newlines and whitespace from API key to prevent httpx header errors
+    groq_api_key = groq_api_key.strip()
+
     if len(groq_api_key) > 6:
         masked_key = groq_api_key[:3] + "***" + groq_api_key[-3:]
     else:

@@ -28,6 +28,10 @@ class LLMContentGenerator(BaseContentGenerator):
     def __init__(self):
         """Initialize the LLM content generator."""
         self.groq_api_key = os.environ.get("GROQ_API_KEY")
+        if self.groq_api_key:
+            # Strip newlines and whitespace from API key to prevent httpx header errors
+            self.groq_api_key = self.groq_api_key.strip()
+
         self.chat_model = None
         self.content_chain = None
         self.global_planner = GlobalPlanner()
