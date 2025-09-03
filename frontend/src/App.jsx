@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -123,8 +123,15 @@ function DungeonContent({
   onSubmit,
   onClear,
   onRetry,
-  setError
+  setError,
+  validateAndSanitizeUTF8
 }) {
+  // Memoize the validation result to prevent unnecessary recalculations
+  const utf8Validation = useMemo(() => {
+    if (!message || message.length === 0) return null;
+    return validateAndSanitizeUTF8(message);
+  }, [message, validateAndSanitizeUTF8]);
+
   return (
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {/* Content */}
@@ -214,6 +221,14 @@ function DungeonContent({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             disabled={loading}
+            error={message && !utf8Validation?.isValid}
+            helperText={
+              message && !utf8Validation?.isValid
+                ? "Text contains invalid characters. Please use only standard letters, numbers, and punctuation."
+                : message && utf8Validation?.conversionInfo
+                ? `✓ ${utf8Validation.conversionInfo.description}`
+                : ""
+            }
             sx={{ mb: 2 }}
           />
 
@@ -442,7 +457,9 @@ function DungeonGenerator() {
   const [parsedDungeonData, setParsedDungeonData] = useState(null);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
   const [showGrid, setShowGrid] = useState(true); // Enable grid by default
-  const [settingsExpanded, setSettingsExpanded] = useState(true); // Expanded by default
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
+
+  // Settings state
   const [settings, setSettings] = useState({
     roomCount: 10,
     layoutType: 'poisson_disc',
@@ -451,8 +468,217 @@ function DungeonGenerator() {
     percentageRoomsWithMonsters: 0.45
   });
 
+  // UTF-8 validation function with safe encoding conversion
+  const validateAndSanitizeUTF8 = (text) => {
+    try {
+      // First, try to detect if the text might be in a different encoding
+      // and safely convert it to UTF-8
+      let convertedText = text;
+      let conversionInfo = null;
+
+      // Use enhanced encoding detection
+      const encodingInfo = detectAndConvertEncoding(text);
+      if (encodingInfo.hasConversions) {
+        convertedText = encodingInfo.convertedText;
+        conversionInfo = {
+          type: 'encoding_conversion',
+          description: `Converted: ${encodingInfo.conversionSteps.join(', ')}`,
+          detectedEncodings: encodingInfo.detectedEncodings
+        };
+        // Only log when there are actual conversions, not on every keystroke
+        if (text.length > 0) {
+          console.log('Applied encoding conversions:', encodingInfo.conversionSteps);
+        }
+      }
+
+      // Check for common encoding issues and try to fix them
+      if (text.includes('') || text.includes('\uFFFD')) {
+        // Text contains replacement characters, might be from encoding issues
+        // Only log if there are actual issues, not on every keystroke
+        if (text.length > 0) {
+          console.warn('Text contains replacement characters, attempting encoding conversion');
+        }
+      }
+
+      // Now validate the converted text
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+
+      // This will throw an error if there are invalid UTF-8 sequences
+      const encoded = encoder.encode(convertedText);
+      const decoded = decoder.decode(encoded);
+
+      // Remove any remaining control characters except newlines and tabs
+      const sanitized = decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+      // Check for potentially problematic characters that might cause issues
+      const problematicChars = [];
+      for (let i = 0; i < convertedText.length; i++) {
+        const char = convertedText[i];
+        const code = convertedText.charCodeAt(i);
+
+        // Check for control characters, private use areas, and other problematic ranges
+        if ((code >= 0x00 && code <= 0x1F && code !== 0x09 && code !== 0x0A) || // Control chars except tab/newline
+            (code >= 0x7F && code <= 0x9F) || // Control characters
+            (code >= 0xD800 && code <= 0xDFFF) || // Surrogate pairs
+            (code >= 0xFDD0 && code <= 0xFDEF) || // Private use areas
+            (code >= 0xFFFE && code <= 0xFFFF)) { // Byte order marks
+          problematicChars.push({
+            char: char,
+            position: i,
+            code: `0x${code.toString(16).toUpperCase()}`,
+            description: getCharDescription(code)
+          });
+        }
+      }
+
+      return {
+        isValid: problematicChars.length === 0,
+        sanitized,
+        problematicChars,
+        hasIssues: problematicChars.length > 0,
+        conversionInfo,
+        originalText: text,
+        convertedText: convertedText
+      };
+    } catch (error) {
+      console.warn('UTF-8 validation failed:', error);
+      return {
+        isValid: false,
+        sanitized: null,
+        problematicChars: [],
+        hasIssues: true,
+        conversionInfo: null,
+        originalText: text,
+        convertedText: text
+      };
+    }
+  };
+
+  // Helper function to describe problematic characters
+  const getCharDescription = (code) => {
+    if (code >= 0x00 && code <= 0x1F) return 'Control character';
+    if (code >= 0x7F && code <= 0x9F) return 'Control character';
+    if (code >= 0xD800 && code <= 0xDFFF) return 'Surrogate pair';
+    if (code >= 0xFDD0 && code <= 0xFDEF) return 'Private use area';
+    if (code >= 0xFFFE && code <= 0xFFFF) return 'Byte order mark';
+    return 'Unknown problematic character';
+  };
+
+  // Enhanced encoding detection and conversion
+  const detectAndConvertEncoding = (text) => {
+    // Check for common encoding patterns
+    const patterns = {
+      // Windows-1252 extended characters (0x80-0x9F)
+      windows1252: /[\x80-\x9F]/,
+      // Latin-1 extended characters
+      latin1: /[\xA0-\xFF]/,
+      // Common smart quotes and dashes that might be from Word/Windows
+      smartQuotes: /['"–—…]/,
+      // Euro symbol and other currency symbols
+      currency: /[€£¥¢]/,
+    };
+
+    let detectedEncodings = [];
+    let conversionSteps = [];
+
+    // Detect what encodings might be present
+    for (const [encoding, pattern] of Object.entries(patterns)) {
+      if (pattern.test(text)) {
+        detectedEncodings.push(encoding);
+      }
+    }
+
+    // Apply safe conversions based on detected encodings
+    let convertedText = text;
+
+    if (detectedEncodings.includes('windows1252')) {
+      // Apply Windows-1252 to UTF-8 conversion (safe)
+      convertedText = applyWindows1252Conversion(convertedText);
+      conversionSteps.push('Windows-1252 to UTF-8');
+    }
+
+    if (detectedEncodings.includes('smartQuotes')) {
+      // Convert smart quotes to standard quotes (safe)
+      convertedText = convertedText
+        .replace(/['']/g, "'")
+        .replace(/[""]/g, '"')
+        .replace(/–/g, '-')
+        .replace(/—/g, '--')
+        .replace(/…/g, '...');
+      conversionSteps.push('Smart quotes to standard');
+    }
+
+    return {
+      detectedEncodings,
+      conversionSteps,
+      convertedText,
+      hasConversions: conversionSteps.length > 0
+    };
+  };
+
+  // Apply Windows-1252 to UTF-8 conversion
+  const applyWindows1252Conversion = (text) => {
+    const conversions = {
+      '\x80': '\u20AC', // €
+      '\x82': '\u201A', // ‚
+      '\x83': '\u0192', // ƒ
+      '\x84': '\u201E', // „
+      '\x85': '\u2026', // …
+      '\x86': '\u2020', // †
+      '\x87': '\u2021', // ‡
+      '\x88': '\u02C6', // ˆ
+      '\x89': '\u2030', // ‰
+      '\x8A': '\u0160', // Š
+      '\x8B': '\u2039', // ‹
+      '\x8C': '\u0152', // Œ
+      '\x8D': '\u017D', // Ž
+      '\x8E': '\u0178', // Ÿ
+      '\x8F': '\u02DC', // ˜
+      '\x90': '\u2122', // ™
+      '\x91': '\u2018', // '
+      '\x92': '\u2019', // '
+      '\x93': '\u201C', // "
+      '\x94': '\u201D', // "
+      '\x95': '\u2022', // •
+      '\x96': '\u2013', // –
+      '\x97': '\u2014', // —
+      '\x98': '\u02DC', // ˜
+      '\x99': '\u2122', // ™
+      '\x9A': '\u0161', // š
+      '\x9B': '\u203A', // ›
+      '\x9C': '\u0153', // œ
+      '\x9D': '\u017E', // ž
+      '\x9E': '\u0178', // Ÿ
+      '\x9F': '\u02DD', // ˝
+    };
+
+    let converted = text;
+    for (const [win1252, utf8] of Object.entries(conversions)) {
+      converted = converted.replace(new RegExp(win1252, 'g'), utf8);
+    }
+    return converted;
+  };
+
   const handleDungeonGenerate = async () => {
     if (!message.trim()) return;
+
+    // Validate UTF-8 encoding before sending
+    const utf8Validation = validateAndSanitizeUTF8(message);
+    if (!utf8Validation.isValid) {
+      setError('Text contains invalid characters. Please use only standard letters, numbers, and punctuation.');
+      return;
+    }
+
+    // Use converted text if available, otherwise use sanitized text
+    const finalMessage = utf8Validation.convertedText || utf8Validation.sanitized || message;
+
+    // Show conversion info if any conversion was applied
+    if (utf8Validation.conversionInfo) {
+      console.log(`Encoding conversion applied: ${utf8Validation.conversionInfo.description}`);
+      // Optionally show a success message about the conversion
+      setError(''); // Clear any previous errors
+    }
 
     setLoading(true);
     setError('');
@@ -465,10 +691,10 @@ function DungeonGenerator() {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
         },
         body: JSON.stringify({
-          guidelines: message,
+          guidelines: finalMessage,
           options: {
             room_count: settings.roomCount,
             layout_type: settings.layoutType,
@@ -600,24 +826,32 @@ function DungeonGenerator() {
           flex: 1,
           marginRight: settingsExpanded ? '300px' : '50px',
           transition: 'margin-right 0.3s ease-in-out',
-          minHeight: '800px'
+          minHeight: '800px',
+          display: 'flex',
+          justifyContent: 'center'
         }}>
-          <DungeonContent
-            message={message}
-            setMessage={setMessage}
-            loading={loading}
-            error={error}
-            dungeonResult={dungeonResult}
-            parsedDungeonData={parsedDungeonData}
-            selectedRoomId={selectedRoomId}
-            showGrid={showGrid}
-            setShowGrid={setShowGrid}
-            onRoomSelect={handleRoomSelect}
-            onSubmit={handleSubmit}
-            onClear={clearHistory}
-            onRetry={handleDungeonGenerate}
-            setError={setError}
-          />
+          <Box sx={{
+            width: '100%',
+            maxWidth: '1200px'
+          }}>
+            <DungeonContent
+              message={message}
+              setMessage={setMessage}
+              loading={loading}
+              error={error}
+              dungeonResult={dungeonResult}
+              parsedDungeonData={parsedDungeonData}
+              selectedRoomId={selectedRoomId}
+              showGrid={showGrid}
+              setShowGrid={setShowGrid}
+              onRoomSelect={handleRoomSelect}
+              onSubmit={handleSubmit}
+              onClear={clearHistory}
+              onRetry={handleDungeonGenerate}
+              setError={setError}
+              validateAndSanitizeUTF8={validateAndSanitizeUTF8}
+            />
+          </Box>
         </Box>
 
         {/* Settings Sidebar */}
@@ -645,19 +879,67 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ flexGrow: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <style>
+        {`
+          body, html {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+          }
+          #root {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+          }
+        `}
+      </style>
+      <Box sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: '1400px'
+      }}>
         {/* Simple Header */}
-        <AppBar position="static" elevation={0} sx={{ backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)' }}>
-          <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'primary.main', fontWeight: 700 }}>
+        <Box sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(10px)',
+          borderBottom: '1px solid #e0e0e0',
+          width: '100%'
+        }}>
+          <Box sx={{
+            width: '100%',
+            maxWidth: '1400px',
+            p: 2
+          }}>
+            <Typography variant="h6" component="div" sx={{
+              color: 'primary.main',
+              fontWeight: 700,
+              textAlign: 'center'
+            }}>
               DungeonGen
             </Typography>
-          </Toolbar>
-        </AppBar>
+          </Box>
+        </Box>
 
         {/* Main Dungeon Generator Interface */}
-        <Box sx={{ flexGrow: 1, p: 3 }}>
-          <Box sx={{ height: '100%', maxWidth: 'none' }}>
+        <Box sx={{
+          flexGrow: 1,
+          p: 3,
+          display: 'flex',
+          justifyContent: 'center',
+          width: '100%'
+        }}>
+          <Box sx={{
+            height: '100%',
+            width: '100%',
+            maxWidth: '1400px'
+          }}>
             <DungeonGenerator />
           </Box>
         </Box>
