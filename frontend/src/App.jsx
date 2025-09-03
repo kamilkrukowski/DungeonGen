@@ -124,14 +124,9 @@ function DungeonContent({
   onClear,
   onRetry,
   setError,
-  validateAndSanitizeUTF8
+  validateAndSanitizeUTF8,
+  utf8ValidationResult
 }) {
-  // Memoize the validation result to prevent unnecessary recalculations
-  const utf8Validation = useMemo(() => {
-    if (!message || message.length === 0) return null;
-    return validateAndSanitizeUTF8(message);
-  }, [message, validateAndSanitizeUTF8]);
-
   return (
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       {/* Content */}
@@ -221,12 +216,12 @@ function DungeonContent({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             disabled={loading}
-            error={message && !utf8Validation?.isValid}
+            error={message && !utf8ValidationResult.isValid}
             helperText={
-              message && !utf8Validation?.isValid
+              message && !utf8ValidationResult.isValid
                 ? "Text contains invalid characters. Please use only standard letters, numbers, and punctuation."
-                : message && utf8Validation?.conversionInfo
-                ? `✓ ${utf8Validation.conversionInfo.description}`
+                : message && utf8ValidationResult.conversionInfo
+                ? `✓ ${utf8ValidationResult.conversionInfo.description}`
                 : ""
             }
             sx={{ mb: 2 }}
@@ -468,93 +463,6 @@ function DungeonGenerator() {
     percentageRoomsWithMonsters: 0.45
   });
 
-  // UTF-8 validation function with safe encoding conversion
-  const validateAndSanitizeUTF8 = (text) => {
-    try {
-      // First, try to detect if the text might be in a different encoding
-      // and safely convert it to UTF-8
-      let convertedText = text;
-      let conversionInfo = null;
-
-      // Use enhanced encoding detection
-      const encodingInfo = detectAndConvertEncoding(text);
-      if (encodingInfo.hasConversions) {
-        convertedText = encodingInfo.convertedText;
-        conversionInfo = {
-          type: 'encoding_conversion',
-          description: `Converted: ${encodingInfo.conversionSteps.join(', ')}`,
-          detectedEncodings: encodingInfo.detectedEncodings
-        };
-        // Only log when there are actual conversions, not on every keystroke
-        if (text.length > 0) {
-          console.log('Applied encoding conversions:', encodingInfo.conversionSteps);
-        }
-      }
-
-      // Check for common encoding issues and try to fix them
-      if (text.includes('') || text.includes('\uFFFD')) {
-        // Text contains replacement characters, might be from encoding issues
-        // Only log if there are actual issues, not on every keystroke
-        if (text.length > 0) {
-          console.warn('Text contains replacement characters, attempting encoding conversion');
-        }
-      }
-
-      // Now validate the converted text
-      const encoder = new TextEncoder();
-      const decoder = new TextDecoder('utf-8', { fatal: true });
-
-      // This will throw an error if there are invalid UTF-8 sequences
-      const encoded = encoder.encode(convertedText);
-      const decoded = decoder.decode(encoded);
-
-      // Remove any remaining control characters except newlines and tabs
-      const sanitized = decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-
-      // Check for potentially problematic characters that might cause issues
-      const problematicChars = [];
-      for (let i = 0; i < convertedText.length; i++) {
-        const char = convertedText[i];
-        const code = convertedText.charCodeAt(i);
-
-        // Check for control characters, private use areas, and other problematic ranges
-        if ((code >= 0x00 && code <= 0x1F && code !== 0x09 && code !== 0x0A) || // Control chars except tab/newline
-            (code >= 0x7F && code <= 0x9F) || // Control characters
-            (code >= 0xD800 && code <= 0xDFFF) || // Surrogate pairs
-            (code >= 0xFDD0 && code <= 0xFDEF) || // Private use areas
-            (code >= 0xFFFE && code <= 0xFFFF)) { // Byte order marks
-          problematicChars.push({
-            char: char,
-            position: i,
-            code: `0x${code.toString(16).toUpperCase()}`,
-            description: getCharDescription(code)
-          });
-        }
-      }
-
-      return {
-        isValid: problematicChars.length === 0,
-        sanitized,
-        problematicChars,
-        hasIssues: problematicChars.length > 0,
-        conversionInfo,
-        originalText: text,
-        convertedText: convertedText
-      };
-    } catch (error) {
-      console.warn('UTF-8 validation failed:', error);
-      return {
-        isValid: false,
-        sanitized: null,
-        problematicChars: [],
-        hasIssues: true,
-        conversionInfo: null,
-        originalText: text,
-        convertedText: text
-      };
-    }
-  };
-
   // Helper function to describe problematic characters
   const getCharDescription = (code) => {
     if (code >= 0x00 && code <= 0x1F) return 'Control character';
@@ -660,22 +568,114 @@ function DungeonGenerator() {
     return converted;
   };
 
+  // UTF-8 validation function with safe encoding conversion
+  const validateAndSanitizeUTF8 = (text) => {
+    try {
+      // First, try to detect if the text might be in a different encoding
+      // and safely convert it to UTF-8
+      let convertedText = text;
+      let conversionInfo = null;
+
+      // Use enhanced encoding detection
+      const encodingInfo = detectAndConvertEncoding(text);
+      if (encodingInfo.hasConversions) {
+        convertedText = encodingInfo.convertedText;
+        conversionInfo = {
+          type: 'encoding_conversion',
+          description: `Converted: ${encodingInfo.conversionSteps.join(', ')}`,
+          detectedEncodings: encodingInfo.detectedEncodings
+        };
+        // Only log when there are actual conversions, not on every keystroke
+        if (text.length > 0) {
+          console.log('Applied encoding conversions:', encodingInfo.conversionSteps);
+        }
+      }
+
+      // Check for common encoding issues and try to fix them
+      if (text.includes('\uFFFD')) {
+        // Text contains replacement characters, might be from encoding issues
+        // Only log if there are actual issues, not on every keystroke
+        if (text.length > 0) {
+          console.warn('Text contains replacement characters, attempting encoding conversion');
+        }
+      }
+
+      // Now validate the converted text
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+
+      // This will throw an error if there are invalid UTF-8 sequences
+      const encoded = encoder.encode(convertedText);
+      const decoded = decoder.decode(encoded);
+
+      // Remove any remaining control characters except newlines and tabs
+      const sanitized = decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+      // Check for potentially problematic characters that might cause issues
+      const problematicChars = [];
+      for (let i = 0; i < convertedText.length; i++) {
+        const char = convertedText[i];
+        const code = convertedText.charCodeAt(i);
+
+        // Check for control characters, private use areas, and other problematic ranges
+        if ((code >= 0x00 && code <= 0x1F && code !== 0x09 && code !== 0x0A) || // Control chars except tab/newline
+            (code >= 0x7F && code <= 0x9F) || // Control characters
+            (code >= 0xD800 && code <= 0xDFFF) || // Surrogate pairs
+            (code >= 0xFDD0 && code <= 0xFDEF) || // Private use areas
+            (code >= 0xFFFE && code <= 0xFFFF)) { // Byte order marks
+          problematicChars.push({
+            char: char,
+            position: i,
+            code: `0x${code.toString(16).toUpperCase()}`,
+            description: getCharDescription(code)
+          });
+        }
+      }
+
+      return {
+        isValid: problematicChars.length === 0,
+        sanitized,
+        problematicChars,
+        hasIssues: problematicChars.length > 0,
+        conversionInfo,
+        originalText: text,
+        convertedText: convertedText
+      };
+    } catch (error) {
+      console.warn('UTF-8 validation failed:', error);
+      return {
+        isValid: false,
+        sanitized: null,
+        problematicChars: [],
+        hasIssues: true,
+        conversionInfo: null,
+        originalText: text,
+        convertedText: text
+      };
+    }
+  };
+
+  // Memoize the validation result to prevent unnecessary recalculations
+  const utf8ValidationResult = useMemo(() => {
+    if (!message) return { isValid: true, sanitized: '', problematicChars: [], hasIssues: false, conversionInfo: null, originalText: '', convertedText: '' };
+    return validateAndSanitizeUTF8(message);
+  }, [message]);
+
   const handleDungeonGenerate = async () => {
     if (!message.trim()) return;
 
     // Validate UTF-8 encoding before sending
-    const utf8Validation = validateAndSanitizeUTF8(message);
-    if (!utf8Validation.isValid) {
+    if (!utf8ValidationResult.isValid) {
       setError('Text contains invalid characters. Please use only standard letters, numbers, and punctuation.');
       return;
     }
 
-    // Use converted text if available, otherwise use sanitized text
-    const finalMessage = utf8Validation.convertedText || utf8Validation.sanitized || message;
+        // Use converted text if available, otherwise use sanitized text
+    const finalMessage = utf8ValidationResult.convertedText || utf8ValidationResult.sanitized || message;
 
     // Show conversion info if any conversion was applied
-    if (utf8Validation.conversionInfo) {
-      console.log(`Encoding conversion applied: ${utf8Validation.conversionInfo.description}`);
+    if (utf8ValidationResult.conversionInfo) {
+      console.log(`Encoding conversion applied: ${utf8ValidationResult.conversionInfo.description}`);
       // Optionally show a success message about the conversion
       setError(''); // Clear any previous errors
     }
@@ -850,6 +850,7 @@ function DungeonGenerator() {
               onRetry={handleDungeonGenerate}
               setError={setError}
               validateAndSanitizeUTF8={validateAndSanitizeUTF8}
+              utf8ValidationResult={utf8ValidationResult}
             />
           </Box>
         </Box>
