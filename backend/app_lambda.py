@@ -17,11 +17,11 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_restx import Resource
 
-# Import API documentation
-from api.docs import create_api_docs
-
 # Register API blueprints
 from api.auth.router import auth_bp, auth_ns
+
+# Import API documentation
+from api.docs import create_api_docs
 from api.generate.router import generate_bp, generate_ns
 
 # Import utilities
@@ -177,9 +177,9 @@ class HealthCheck(Resource):
     def get(self):
         """Check the health status of the API."""
         result = {
-            "status": "healthy", 
+            "status": "healthy",
             "service": "dungeongen-backend-lambda",
-            "runtime": "aws-lambda"
+            "runtime": "aws-lambda",
         }
         return result
 
@@ -210,10 +210,10 @@ def init_lambda():
     """Initialize Lambda-specific configurations."""
     # Set environment variables for Lambda
     os.environ.setdefault("FLASK_ENV", "production")
-    
+
     # Disable debug mode in Lambda
     app.config["DEBUG"] = False
-    
+
     # Optimize for Lambda cold starts
     print("Lambda initialization complete")
 
