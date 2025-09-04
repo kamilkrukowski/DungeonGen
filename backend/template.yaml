@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: DungeonGen Backend API
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 1024
+    Runtime: python3.11
+    Environment:
+      Variables:
+        GROQ_API_KEY: !Ref GroqApiKey
+        ADMIN_PASSWORD_HASH: !Ref AdminPasswordHash
+        JWT_SECRET_KEY: !Ref JwtSecretKey
+
+Parameters:
+  GroqApiKey:
+    Type: String
+    Description: GROQ API Key for AI generation
+    NoEcho: true
+  AdminPasswordHash:
+    Type: String
+    Description: Admin password hash
+    NoEcho: true
+  JwtSecretKey:
+    Type: String
+    Description: JWT secret key
+    NoEcho: true
+
+Resources:
+  DungeonGenApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: lambda_handler.lambda_handler
+      Events:
+        ApiGateway:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            RestApiId: !Ref DungeonGenRestApi
+        RootApiGateway:
+          Type: Api
+          Properties:
+            Path: /
+            Method: ANY
+            RestApiId: !Ref DungeonGenRestApi
+
+  DungeonGenRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref AWS::StackName
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${DungeonGenRestApi}.execute-api.${AWS::Region}.amazonaws.com/${AWS::StackName}/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
