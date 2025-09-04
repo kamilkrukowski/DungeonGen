@@ -22,6 +22,22 @@ class RoomShape(Enum):
         return self.value
 
 
+class RoomSizeCategory(Enum):
+    """Room size categories based on area."""
+
+    TINY = "tiny"  # ≤ 12 sq units (3x4 or smaller)
+    SMALL = "small"  # 13-20 sq units (4x5)
+    HUGE = "huge"  # 21-42 sq units (6x7) - medium rooms
+    LARGE = "large"  # 43-72 sq units (8x9)
+    # Note: "huge" is used for both medium (21-42) and very large (>72) rooms
+
+    def __str__(self) -> str:
+        return self.value
+
+    def __repr__(self) -> str:
+        return self.value
+
+
 class Coordinates(BaseModel):
     """2D coordinate system for dungeon layout."""
 
@@ -107,6 +123,7 @@ class Room(BaseModel):
     width: int = Field(default=0)
     height: int = Field(default=0)
     shape: RoomShape = Field(default=RoomShape.RECTANGLE)
+    size_category: RoomSizeCategory | None = Field(default=None)
 
     model_config = ConfigDict(use_enum_values=True)
 
@@ -138,6 +155,22 @@ class Room(BaseModel):
         return Coordinates(
             x=self.anchor.x + self.width // 2, y=self.anchor.y + self.height // 2
         )
+
+    @property
+    def calculated_size_category(self) -> RoomSizeCategory:
+        """Calculate room size category based on dimensions."""
+        room_area = self.width * self.height
+
+        if room_area <= 12:  # 3x4 or smaller
+            return RoomSizeCategory.TINY
+        elif room_area <= 20:  # 4x5 or smaller
+            return RoomSizeCategory.SMALL
+        elif room_area <= 42:  # 6x7 or smaller
+            return RoomSizeCategory.HUGE  # Medium rooms
+        elif room_area <= 72:  # 8x9 or smaller
+            return RoomSizeCategory.LARGE
+        else:  # Larger than 8x9
+            return RoomSizeCategory.HUGE  # Very large rooms
 
 
 class Connection(BaseModel):

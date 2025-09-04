@@ -11,6 +11,7 @@ from models.dungeon import DungeonGuidelines, DungeonLayout, GenerationOptions
 from utils import simple_trace
 
 from ._balance import BalanceCalculator
+from ._boss import BossPlanner
 from ._monsters import MonsterPlanner
 from ._name_generator import DungeonNameGenerator
 from ._traps import TrapPlanner
@@ -23,8 +24,9 @@ class DungeonContentPlan:
 
     name: str
     treasures: list[dict[str, Any]]
-    monsters: list[dict[str, Any]]
+    monsters: dict[str, list[dict[str, Any]]]  # Keyed by room size categories
     traps: list[dict[str, Any]]
+    boss: dict[str, Any] | None  # Boss encounter data
     total_value: float
     difficulty_curve: list[float]
 
@@ -42,6 +44,7 @@ class GlobalPlanner:
         self.name_generator = DungeonNameGenerator()
         self.treasure_planner = TreasurePlanner()
         self.monster_planner = MonsterPlanner()
+        self.boss_planner = BossPlanner()
         self.trap_planner = TrapPlanner()
         self.balance_calculator = BalanceCalculator()
 
@@ -74,10 +77,30 @@ class GlobalPlanner:
             room_count=room_counts["treasure"], guidelines=guidelines, options=options
         )
 
+        # Get rooms that need monster encounters
+        rooms_with_monsters = [room for room in layout.rooms if room.has_monsters]
+
         # Generate monster encounters based on room count and difficulty
         monster_encounters = self.monster_planner.generate_encounters(
-            room_count=room_counts["monsters"], guidelines=guidelines, options=options
+            room_count=room_counts["monsters"],
+            guidelines=guidelines,
+            options=options,
+            rooms_with_monsters=rooms_with_monsters,
         )
+
+        # Generate boss encounter if there's a boss room
+        boss_encounter = None
+        boss_room = self._find_boss_room(layout)
+        if boss_room:
+            boss_room_area = boss_room.width * boss_room.height
+            boss_encounter = self.boss_planner.generate_boss(
+                room_area=boss_room_area,
+                dungeon_name=dungeon_name,
+                guidelines=guidelines,
+                options=options,
+            )
+            # Add boss encounter to the monster encounters
+            monster_encounters["boss"].append(boss_encounter)
 
         # Generate trap themes based on room count and guidelines
         trap_themes = self.trap_planner.generate_trap_themes(
@@ -101,15 +124,23 @@ class GlobalPlanner:
             )
 
             # Monster generation results
+            total_monster_count = sum(
+                len(encounter_list) for encounter_list in monster_encounters.values()
+            )
             current_span.set_attribute(
-                "global_planner.monster_count", len(monster_encounters)
+                "global_planner.monster_count", total_monster_count
             )
 
             # Handle empty monster_encounters case
-            if monster_encounters:
+            all_monster_encounters = [
+                encounter
+                for encounter_list in monster_encounters.values()
+                for encounter in encounter_list
+            ]
+            if all_monster_encounters:
                 current_span.set_attribute(
                     "global_planner.monster_cr_range",
-                    f"{min(e.get('challenge_rating', 0) for e in monster_encounters)}-{max(e.get('challenge_rating', 0) for e in monster_encounters)}",
+                    f"{min(e.get('challenge_rating', 0) for e in all_monster_encounters)}-{max(e.get('challenge_rating', 0) for e in all_monster_encounters)}",
                 )
             else:
                 current_span.set_attribute("global_planner.monster_cr_range", "N/A")
@@ -119,7 +150,7 @@ class GlobalPlanner:
                 str(
                     [
                         e.get("encounter_difficulty", "unknown")
-                        for e in monster_encounters[:5]
+                        for e in all_monster_encounters[:5]
                     ]
                 ),
             )
@@ -157,6 +188,7 @@ class GlobalPlanner:
             treasures=treasure_list,
             monsters=monster_encounters,
             traps=trap_themes,
+            boss=boss_encounter,
             total_value=total_value,
             difficulty_curve=difficulty_curve,
         )
@@ -168,3 +200,10 @@ class GlobalPlanner:
             "monsters": sum(1 for room in layout.rooms if room.has_monsters),
             "traps": sum(1 for room in layout.rooms if room.has_traps),
         }
+
+    def _find_boss_room(self, layout: DungeonLayout):
+        """Find the boss room in the layout."""
+        for room in layout.rooms:
+            if room.is_boss_room:
+                return room
+        return None

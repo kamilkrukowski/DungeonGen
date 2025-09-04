@@ -78,7 +78,7 @@ export class CanvasViewport {
 }
 
 export class Room {
-  constructor(id, name, description, anchor, width, height, shape, hasTraps = false, hasTreasure = false, hasMonsters = false) {
+  constructor(id, name, description, anchor, width, height, shape, hasTraps = false, hasTreasure = false, hasMonsters = false, sizeCategory = null) {
     this.id = id;
     this.name = name;
     this.description = description;
@@ -89,6 +89,7 @@ export class Room {
     this.hasTraps = hasTraps;
     this.hasTreasure = hasTreasure;
     this.hasMonsters = hasMonsters;
+    this.sizeCategory = sizeCategory;
   }
 
   static fromObject(obj) {
@@ -102,7 +103,8 @@ export class Room {
       obj.shape,
       obj.has_traps || false,
       obj.has_treasure || false,
-      obj.has_monsters || false
+      obj.has_monsters || false,
+      obj.size_category || null
     );
 
     // Add special room flags if they exist
@@ -131,6 +133,22 @@ export class Room {
       this.anchor.x + Math.floor(this.width / 2),
       this.anchor.y + Math.floor(this.height / 2)
     );
+  }
+
+  get calculatedSizeCategory() {
+    const roomArea = this.width * this.height;
+
+    if (roomArea <= 12) {  // 3x4 or smaller
+      return 'tiny';
+    } else if (roomArea <= 20) {  // 4x5 or smaller
+      return 'small';
+    } else if (roomArea <= 42) {  // 6x7 or smaller
+      return 'huge';  // Medium rooms
+    } else if (roomArea <= 72) {  // 8x9 or smaller
+      return 'large';
+    } else {  // Larger than 8x9
+      return 'huge';  // Very large rooms
+    }
   }
 }
 

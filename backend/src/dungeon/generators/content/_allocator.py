@@ -40,7 +40,11 @@ class ContentAllocator:
         """
         # Create a copy of the content lists to avoid modifying the original
         treasures = content_plan.treasures.copy()
-        monsters = content_plan.monsters.copy()
+        # Deep copy the monsters dictionary to avoid modifying the original
+        monsters = {
+            category: encounters.copy()
+            for category, encounters in content_plan.monsters.items()
+        }
         traps = content_plan.traps.copy()
 
         # Initialize allocation results
@@ -97,7 +101,7 @@ class ContentAllocator:
         self,
         room: Room,
         treasures: list[dict[str, Any]],
-        monsters: list[dict[str, Any]],
+        monsters: dict[str, list[dict[str, Any]]],
         traps: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Allocate content for a specific room."""
@@ -115,8 +119,19 @@ class ContentAllocator:
 
         # Allocate monsters if room needs them
         if room.has_monsters and monsters:
-            allocated_monster = monsters.pop(0)  # Take first available monster
-            room_content["monsters"].append(allocated_monster)
+            # Determine room size category
+            room_size_category = self._get_room_size_category(room)
+
+            # For boss rooms, only allocate from boss category
+            if room.is_boss_room:
+                if "boss" in monsters and monsters["boss"]:
+                    allocated_monster = monsters["boss"].pop(0)
+                    room_content["monsters"].append(allocated_monster)
+            else:
+                # For non-boss rooms, allocate from appropriate size category
+                if room_size_category in monsters and monsters[room_size_category]:
+                    allocated_monster = monsters[room_size_category].pop(0)
+                    room_content["monsters"].append(allocated_monster)
 
         # Allocate traps if room needs them
         if room.has_traps and traps:
@@ -124,6 +139,22 @@ class ContentAllocator:
             room_content["traps"].append(allocated_trap)
 
         return room_content
+
+    def _get_room_size_category(self, room: Room) -> str:
+        """Determine room size category based on room dimensions."""
+        room_area = room.width * room.height
+
+        # Use consistent categorization with the monster planner
+        if room_area <= 12:  # 3x4 or smaller
+            return "tiny"
+        elif room_area <= 20:  # 4x5 or smaller
+            return "small"
+        elif room_area <= 42:  # 6x7 or smaller
+            return "huge"  # Using "huge" for medium rooms to avoid confusion with boss rooms
+        elif room_area <= 72:  # 8x9 or smaller
+            return "large"
+        else:  # Larger than 8x9
+            return "huge"
 
     def validate_allocation(
         self,

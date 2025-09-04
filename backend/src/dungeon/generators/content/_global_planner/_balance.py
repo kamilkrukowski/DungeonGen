@@ -52,13 +52,13 @@ class BalanceCalculator:
 
     @simple_trace("BalanceCalculator.calculate_difficulty_curve")
     def calculate_difficulty_curve(
-        self, monster_encounters: list[dict[str, Any]], layout: DungeonLayout
+        self, monster_encounters: dict[str, list[dict[str, Any]]], layout: DungeonLayout
     ) -> list[float]:
         """
         Calculate difficulty progression curve for the dungeon.
 
         Args:
-            monster_encounters: List of monster encounters
+            monster_encounters: Dictionary of monster encounters organized by room size
             layout: Dungeon layout for spatial context
 
         Returns:
@@ -66,9 +66,14 @@ class BalanceCalculator:
         """
         difficulty_curve = []
 
+        # Flatten all monster encounters into a single list for processing
+        all_encounters = []
+        for encounter_list in monster_encounters.values():
+            all_encounters.extend(encounter_list)
+
         # Create a difficulty value for each room in the layout
         for room in layout.rooms:
-            room_difficulty = self._calculate_room_difficulty(room, monster_encounters)
+            room_difficulty = self._calculate_room_difficulty(room, all_encounters)
             difficulty_curve.append(room_difficulty)
 
         # Add span attributes for difficulty curve calculation
@@ -78,7 +83,7 @@ class BalanceCalculator:
                 "balance_calculator.room_count", len(layout.rooms)
             )
             current_span.set_attribute(
-                "balance_calculator.monster_count", len(monster_encounters)
+                "balance_calculator.monster_count", len(all_encounters)
             )
             current_span.set_attribute(
                 "balance_calculator.difficulty_range",
@@ -134,7 +139,7 @@ class BalanceCalculator:
     def validate_content_balance(
         self,
         treasure_list: list[dict[str, Any]],
-        monster_encounters: list[dict[str, Any]],
+        monster_encounters: dict[str, list[dict[str, Any]]],
         trap_themes: list[dict[str, Any]],
         layout: DungeonLayout,
     ) -> dict[str, Any]:
@@ -143,7 +148,7 @@ class BalanceCalculator:
 
         Args:
             treasure_list: List of treasure items
-            monster_encounters: List of monster encounters
+            monster_encounters: Dictionary of monster encounters organized by room size
             trap_themes: List of trap themes
             layout: Dungeon layout
 
@@ -161,12 +166,17 @@ class BalanceCalculator:
         total_treasure_value = self.calculate_total_value(treasure_list)
         difficulty_curve = self.calculate_difficulty_curve(monster_encounters, layout)
 
+        # Calculate total monster count across all categories
+        total_monster_count = sum(
+            len(encounter_list) for encounter_list in monster_encounters.values()
+        )
+
         # Store metrics
         validation_results["metrics"] = {
             "total_treasure_value": total_treasure_value,
             "difficulty_curve": difficulty_curve,
             "treasure_count": len(treasure_list),
-            "monster_count": len(monster_encounters),
+            "monster_count": total_monster_count,
             "trap_count": len(trap_themes),
         }
 

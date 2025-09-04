@@ -75,6 +75,7 @@ class RoomSampler:
         boss_room = self._find_boss_room(layout, entrance_room)
         if boss_room:
             boss_room.is_boss_room = True
+            boss_room.has_monsters = True  # Boss rooms always have monsters
 
         # Find treasure vault (most isolated room, but not the boss room)
         treasure_vault = self._find_treasure_vault(layout, entrance_room, boss_room)

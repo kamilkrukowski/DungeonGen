@@ -217,7 +217,7 @@ const RoomContentPanel = ({ parsedDungeonData, selectedRoomId }) => {
 
         {selectedRoom && (
           <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-            Room {selectedRoom.id} • {selectedRoom.width}×{selectedRoom.height} units
+            Room {selectedRoom.id} • {selectedRoom.width}×{selectedRoom.height} units • {selectedRoom.calculatedSizeCategory} size
           </Typography>
         )}
       </Paper>

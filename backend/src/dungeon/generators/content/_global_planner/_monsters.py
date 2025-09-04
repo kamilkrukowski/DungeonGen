@@ -29,7 +29,8 @@ class MonsterPlanner:
         room_count: int,
         guidelines: DungeonGuidelines,
         options: GenerationOptions,
-    ) -> list[dict[str, Any]]:
+        rooms_with_monsters: list = None,
+    ) -> dict[str, list[dict[str, Any]]]:
         """
         Generate balanced monster encounters for the dungeon.
 
@@ -37,91 +38,76 @@ class MonsterPlanner:
             room_count: Number of rooms that need monsters
             guidelines: Dungeon generation guidelines
             options: Generation options
+            rooms_with_monsters: List of rooms that need monster encounters
 
         Returns:
-            List of monster encounters with metadata
+            Dictionary of monster encounters organized by room size categories
         """
-        encounters = []
+        # Initialize encounters by room size
+        encounters = {"boss": [], "large": [], "huge": [], "small": [], "tiny": []}
 
-        # Calculate difficulty progression based on dungeon size and theme
-        difficulty_progression = self._calculate_difficulty_progression(
-            room_count, guidelines
-        )
+        # Count rooms by size category
+        room_counts_by_size = self._count_rooms_by_size(rooms_with_monsters)
 
-        # Generate encounters for each room
-        for i in range(room_count):
-            encounter = self._generate_single_encounter(
-                room_index=i,
-                total_rooms=room_count,
-                difficulty_progression=difficulty_progression,
-                guidelines=guidelines,
-            )
-            encounters.append(encounter)
+        # Generate encounters for each room size category
+        for room_size_category, count in room_counts_by_size.items():
+            if count > 0:
+                # Generate encounters for this room size category
+                # Add some buffer (n_rooms + 2) to ensure we have enough monsters
+                encounters_to_generate = count + 2
+
+                for i in range(encounters_to_generate):
+                    encounter = self._generate_single_encounter(
+                        room_index=i,
+                        total_rooms=count,
+                        guidelines=guidelines,
+                    )
+                    encounters[room_size_category].append(encounter)
 
         # Add span attributes for monster generation results
         current_span = trace.get_current_span()
         if current_span:
             current_span.set_attribute("monster_planner.room_count", room_count)
+
+            # Add room counts by size category
+            for category, count in room_counts_by_size.items():
+                current_span.set_attribute(f"monster_planner.{category}_rooms", count)
+
+            # Calculate total encounters across all categories
+            total_encounters = sum(
+                len(encounter_list) for encounter_list in encounters.values()
+            )
             current_span.set_attribute(
-                "monster_planner.total_encounters", len(encounters)
+                "monster_planner.total_encounters", total_encounters
             )
 
+            # Add encounter counts by category
+            for category, encounter_list in encounters.items():
+                current_span.set_attribute(
+                    f"monster_planner.{category}_encounters", len(encounter_list)
+                )
+
             # Handle empty encounters case
-            if encounters:
+            all_encounters = [
+                encounter
+                for encounter_list in encounters.values()
+                for encounter in encounter_list
+            ]
+            if all_encounters:
                 current_span.set_attribute(
                     "monster_planner.cr_range",
-                    f"{min(e.get('challenge_rating', 0) for e in encounters)}-{max(e.get('challenge_rating', 0) for e in encounters)}",
+                    f"{min(e.get('challenge_rating', 0) for e in all_encounters)}-{max(e.get('challenge_rating', 0) for e in all_encounters)}",
                 )
             else:
                 current_span.set_attribute("monster_planner.cr_range", "N/A")
 
-            current_span.set_attribute(
-                "monster_planner.difficulty_progression",
-                str([round(p, 2) for p in difficulty_progression[:5]]),
-            )  # First 5 for brevity
+            # Difficulty is now sampled dynamically, no progression needed
             current_span.set_attribute("monster_planner.theme", guidelines.theme)
             current_span.set_attribute(
                 "monster_planner.difficulty", guidelines.difficulty
             )
 
         return encounters
-
-    def _calculate_difficulty_progression(
-        self, room_count: int, guidelines: DungeonGuidelines
-    ) -> list[float]:
-        """Calculate how difficulty should progress through the dungeon."""
-
-        # Base difficulty multiplier based on overall difficulty setting
-        base_multiplier = self._get_difficulty_multiplier(guidelines.difficulty)
-
-        # Create a progression curve (easier at start, harder at end)
-        progression = []
-
-        for i in range(room_count):
-            # Use a sigmoid-like curve for smooth progression
-            progress = i / max(room_count - 1, 1)
-            difficulty_multiplier = 0.5 + (progress * 1.5)  # 0.5x to 2.0x
-
-            # Apply theme-specific adjustments
-            theme_adjustment = self._get_theme_difficulty_adjustment(guidelines.theme)
-
-            final_multiplier = (
-                difficulty_multiplier * base_multiplier * theme_adjustment
-            )
-
-            progression.append(final_multiplier)
-
-        return progression
-
-    def _get_difficulty_multiplier(self, difficulty: str) -> float:
-        """Get base difficulty multiplier."""
-        multipliers = {
-            "easy": 0.7,
-            "medium": 1.0,
-            "hard": 1.4,
-            "deadly": 2.0,
-        }
-        return multipliers.get(difficulty.lower(), 1.0)
 
     def _get_theme_difficulty_adjustment(self, theme: str) -> float:
         """Get theme-specific difficulty adjustment."""
@@ -139,14 +125,15 @@ class MonsterPlanner:
         self,
         room_index: int,
         total_rooms: int,
-        difficulty_progression: list[float],
         guidelines: DungeonGuidelines,
     ) -> dict[str, Any]:
         """Generate a single monster encounter."""
         import random
 
-        # Get difficulty multiplier for this room
-        difficulty_multiplier = difficulty_progression[room_index]
+        # Sample CR dynamically based on difficulty setting and theme
+        base_multiplier = self._get_difficulty_multiplier(guidelines.difficulty)
+        theme_adjustment = self._get_theme_difficulty_adjustment(guidelines.theme)
+        difficulty_multiplier = base_multiplier * theme_adjustment
 
         # Select CR tier based on difficulty and weights
         cr_tier = self._select_cr_tier(difficulty_multiplier)
@@ -221,6 +208,60 @@ class MonsterPlanner:
         weights = list(adjusted_weights.values())
 
         return random.choices(tiers, weights=weights)[0]
+
+    def _get_difficulty_multiplier(self, difficulty: str) -> float:
+        """Get difficulty multiplier based on difficulty setting."""
+        difficulty_multipliers = {
+            "easy": 0.7,
+            "medium": 1.0,
+            "hard": 1.3,
+            "deadly": 1.6,
+        }
+        return difficulty_multipliers.get(difficulty.lower(), 1.0)
+
+    def _count_rooms_by_size(self, rooms_with_monsters: list) -> dict[str, int]:
+        """Count rooms by size category."""
+        counts = {"boss": 0, "large": 0, "huge": 0, "small": 0, "tiny": 0}
+
+        if not rooms_with_monsters:
+            return counts
+
+        for room in rooms_with_monsters:
+            room_size_category = self._get_room_size_category_from_room(room)
+            counts[room_size_category] += 1
+
+        return counts
+
+    def _get_room_size_category_from_room(self, room) -> str:
+        """Determine room size category based on actual room dimensions."""
+
+        room_area = room.width * room.height
+
+        # Use consistent categorization with the boss room sampler
+        if room_area <= 12:  # 3x4 or smaller
+            return "tiny"
+        elif room_area <= 20:  # 4x5 or smaller
+            return "small"
+        elif room_area <= 42:  # 6x7 or smaller
+            return "huge"  # Using "huge" for medium rooms to avoid confusion with boss rooms
+        elif room_area <= 72:  # 8x9 or smaller
+            return "large"
+        else:  # Larger than 8x9
+            return "huge"
+
+    def _get_room_size_category_from_encounter(self, encounter: dict[str, Any]) -> str:
+        """Determine room size category based on room assignment, not monster CR."""
+        # This should be based on which room the encounter is assigned to
+        # For now, we'll distribute encounters evenly across room size categories
+        # In a real implementation, this would be based on the actual room assignment
+
+        # Get room index to determine assignment
+        room_index = encounter.get("room_index", 0)
+
+        # Simple distribution: cycle through room size categories
+        # This is a placeholder - in practice, this would be determined by the actual room size
+        categories = ["tiny", "small", "huge", "large", "boss"]
+        return categories[room_index % len(categories)]
 
     def _generate_monster_type(self, cr: float, theme: str) -> str:
         """Generate monster type based on CR and theme."""
