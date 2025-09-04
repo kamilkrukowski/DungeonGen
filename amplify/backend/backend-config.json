@@ -1,0 +1,44 @@
+{
+  "api": {
+    "dungen": {
+      "dependsOn": [
+        {
+          "attributes": [
+            "Name",
+            "Arn"
+          ],
+          "category": "function",
+          "resourceName": "dungeongen7bea1f1c"
+        }
+      ],
+      "providerPlugin": "awscloudformation",
+      "service": "API Gateway"
+    }
+  },
+  "auth": {},
+  "function": {
+    "dungeongen7bea1f1c": {
+      "build": true,
+      "providerPlugin": "awscloudformation",
+      "service": "Lambda"
+    }
+  },
+  "parameters": {
+    "AMPLIFY_function_dungeongen7bea1f1c_deploymentBucketName": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "dungeongen7bea1f1c"
+        }
+      ]
+    },
+    "AMPLIFY_function_dungeongen7bea1f1c_s3Key": {
+      "usedBy": [
+        {
+          "category": "function",
+          "resourceName": "dungeongen7bea1f1c"
+        }
+      ]
+    }
+  }
+}

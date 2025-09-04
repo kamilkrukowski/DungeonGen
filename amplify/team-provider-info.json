@@ -1,0 +1,26 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-dungeongen-dev-e95b0-authRole",
+      "UnauthRoleArn": "arn:aws:iam::256254565171:role/amplify-dungeongen-dev-e95b0-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::256254565171:role/amplify-dungeongen-dev-e95b0-authRole",
+      "Region": "us-east-1",
+      "DeploymentBucketName": "amplify-dungeongen-dev-e95b0-deployment",
+      "UnauthRoleName": "amplify-dungeongen-dev-e95b0-unauthRole",
+      "StackName": "amplify-dungeongen-dev-e95b0",
+      "StackId": "arn:aws:cloudformation:us-east-1:256254565171:stack/amplify-dungeongen-dev-e95b0/a57c49b0-8a53-11f0-bec6-0e9e2ddb4515",
+      "AmplifyAppId": "d35p6f0ffsnrv1"
+    },
+    "categories": {
+      "function": {
+        "dungeongen7bea1f1c": {
+          "deploymentBucketName": "amplify-dungeongen-dev-e95b0-deployment",
+          "s3Key": "amplify-builds/dungeongen7bea1f1c-31394844474c5074624e-build.zip"
+        }
+      },
+      "api": {
+        "dungen": {}
+      }
+    }
+  }
+}

@@ -6,7 +6,13 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_restx import Resource
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
+try:
+    from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
+    OPENTELEMETRY_AVAILABLE = True
+except ImportError:
+    OPENTELEMETRY_AVAILABLE = False
 
 from api.auth.router import auth_bp, auth_ns
 
@@ -95,16 +101,17 @@ CORS(
     origins=[
         "https://dungeongen.com",
         "https://www.dungeongen.com",
-        "http://localhost:3000", 
-        "http://frontend:3000"
+        "http://localhost:3000",
+        "http://frontend:3000",
     ],
     supports_credentials=False,
     allow_headers=["Content-Type", "Authorization"],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 )
 
-# Instrument Flask
-FlaskInstrumentor().instrument_app(app)
+# Instrument Flask (if OpenTelemetry is available)
+if OPENTELEMETRY_AVAILABLE:
+    FlaskInstrumentor().instrument_app(app)
 
 # Create API documentation
 api, models = create_api_docs(app)
@@ -203,13 +210,17 @@ class Home(Resource):
 @app.before_request
 def handle_preflight():
     """Handle CORS preflight requests."""
-    from flask import request, make_response
-    
+    from flask import make_response, request
+
     if request.method == "OPTIONS":
         response = make_response()
         response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization")
-        response.headers.add('Access-Control-Allow-Methods', "GET,PUT,POST,DELETE,OPTIONS")
+        response.headers.add(
+            "Access-Control-Allow-Headers", "Content-Type,Authorization"
+        )
+        response.headers.add(
+            "Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS"
+        )
         return response
 
 

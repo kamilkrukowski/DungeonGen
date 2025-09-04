@@ -1,19 +1,27 @@
+"""
+Lambda-optimized Flask application for DungeonGen.
+This version is optimized for AWS Lambda deployment with minimal cold start impact.
+"""
+
 import os
 import sys
 import traceback
+from pathlib import Path
+
+# Add the backend directory to Python path
+backend_dir = Path(__file__).parent
+sys.path.insert(0, str(backend_dir))
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_restx import Resource
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
+# Register API blueprints
 from api.auth.router import auth_bp, auth_ns
 
 # Import API documentation
 from api.docs import create_api_docs
-
-# Register API blueprints
 from api.generate.router import generate_bp, generate_ns
 
 # Import utilities
@@ -32,7 +40,6 @@ if groq_api_key:
         masked_key = groq_api_key[:3] + "***" + groq_api_key[-3:]
     else:
         masked_key = "***" + groq_api_key[-3:] if len(groq_api_key) > 3 else "***"
-
 else:
     pass
 
@@ -81,30 +88,31 @@ def extract_exception_location(exc_info: tuple | None = None) -> dict:
     return {"file": filename, "line": line_number, "function": function}
 
 
+# Create Flask app with Lambda optimizations
 app = Flask(__name__)
 
-# Configure Flask for proper UTF-8 handling
+# Configure Flask for Lambda
 app.config["JSON_AS_ASCII"] = False
 app.config["JSONIFY_PRETTYPRINT_REGULAR"] = True
-
-# Ensure proper encoding for request handling
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max file size
 
+# CORS configuration for Lambda
+# In Lambda, we need to handle CORS more dynamically
 CORS(
     app,
     origins=[
         "https://dungeongen.com",
         "https://www.dungeongen.com",
-        "http://localhost:3000", 
-        "http://frontend:3000"
+        "http://localhost:3000",
+        "http://frontend:3000",
     ],
     supports_credentials=False,
     allow_headers=["Content-Type", "Authorization"],
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 )
 
-# Instrument Flask
-FlaskInstrumentor().instrument_app(app)
+# Skip OpenTelemetry instrumentation in Lambda for better performance
+# FlaskInstrumentor().instrument_app(app)  # Commented out for Lambda
 
 # Create API documentation
 api, models = create_api_docs(app)
@@ -158,7 +166,7 @@ Full Traceback:
         },
     }
 
-    # Log the error for debugging
+    # Log the error for debugging (CloudWatch in Lambda)
     print(f"ERROR: Unexpected exception: {error}")
     print(
         f"ERROR Location: {location_info['file']}:{location_info['line']} in {location_info['function']}"
@@ -175,7 +183,11 @@ class HealthCheck(Resource):
     @simple_trace("health_check_endpoint")
     def get(self):
         """Check the health status of the API."""
-        result = {"status": "healthy", "service": "dungeongen-backend"}
+        result = {
+            "status": "healthy",
+            "service": "dungeongen-backend-lambda",
+            "runtime": "aws-lambda",
+        }
         return result
 
 
@@ -185,9 +197,10 @@ class Home(Resource):
     def get(self):
         """Get API information and available endpoints."""
         result = {
-            "message": "DungeonGen Backend API",
+            "message": "DungeonGen Backend API (Lambda)",
             "status": "running",
             "version": "1.0.0",
+            "runtime": "aws-lambda",
             "endpoints": {
                 "auth": "/api/auth/login",
                 "generate": "/api/generate/dungeon",
@@ -199,21 +212,36 @@ class Home(Resource):
         return result
 
 
-# Add manual OPTIONS handler for better CORS support
+# Lambda-specific initialization
+def init_lambda():
+    """Initialize Lambda-specific configurations."""
+    # Set environment variables for Lambda
+    os.environ.setdefault("FLASK_ENV", "production")
+
+    # Disable debug mode in Lambda
+    app.config["DEBUG"] = False
+
+    # Optimize for Lambda cold starts
+    print("Lambda initialization complete")
+
+
+# Add manual OPTIONS handler for better CORS support in Lambda
 @app.before_request
 def handle_preflight():
     """Handle CORS preflight requests."""
-    from flask import request, make_response
-    
+    from flask import make_response, request
+
     if request.method == "OPTIONS":
         response = make_response()
         response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization")
-        response.headers.add('Access-Control-Allow-Methods', "GET,PUT,POST,DELETE,OPTIONS")
+        response.headers.add(
+            "Access-Control-Allow-Headers", "Content-Type,Authorization"
+        )
+        response.headers.add(
+            "Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS"
+        )
         return response
 
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV") == "development"
-    app.run(host="0.0.0.0", port=port, debug=debug)
+# Initialize when module is imported
+init_lambda()

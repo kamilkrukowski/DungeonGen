@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "paths": {
+    "/stuff": {
+      "name": "/stuff",
+      "lambdaFunction": "dungeongen7bea1f1c",
+      "permissions": {
+        "setting": "open"
+      }
+    }
+  }
+}

@@ -11,20 +11,17 @@ Globals:
       Variables:
         GROQ_API_KEY: !Ref GroqApiKey
         ADMIN_PASSWORD_HASH: !Ref AdminPasswordHash
-        JWT_SECRET_KEY: !Ref JwtSecretKey
 
 Parameters:
   GroqApiKey:
     Type: String
     Description: GROQ API Key for AI generation
+    Default: ""
     NoEcho: true
   AdminPasswordHash:
     Type: String
     Description: Admin password hash
-    NoEcho: true
-  JwtSecretKey:
-    Type: String
-    Description: JWT secret key
+    Default: ""
     NoEcho: true
 
 Resources:

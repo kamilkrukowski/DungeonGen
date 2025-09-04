@@ -18,15 +18,14 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./amplify/backend/function/dungeongen7bea1f1c
       dockerfile: Dockerfile
     ports:
-      - "8000:5000"
+      - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./amplify/backend/function/dungeongen7bea1f1c/src:/app
     environment:
-      - FLASK_ENV=development
-      - PORT=5000
+      - PORT=8000
       - JAEGER_AGENT_HOST=jaeger
       - JAEGER_AGENT_PORT=6831
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces

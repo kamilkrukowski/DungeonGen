@@ -663,7 +663,11 @@ function DungeonGenerator() {
     setSelectedRoomId(null);
 
     try {
-      const response = await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) {
+        throw new Error('VITE_API_URL environment variable is not set!');
+      }
+      const response = await authenticatedFetch(`${apiUrl}/api/generate/dungeon`, {
         method: 'POST',
         body: JSON.stringify({
           guidelines: finalMessage,
