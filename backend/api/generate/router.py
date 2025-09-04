@@ -9,6 +9,8 @@ import traceback
 from flask import Blueprint, jsonify, request
 from flask_restx import Namespace, Resource, fields
 
+from api.auth.utils import require_auth
+
 # Import for structured generation
 from models.dungeon import GenerationOptions
 from src.dungeon.generator import DungeonGenerator
@@ -188,8 +190,10 @@ class GenerateStructuredDungeon(Resource):
     @generate_ns.expect(dungeon_generate_request_model)
     @generate_ns.response(200, "Success", dungeon_generate_response_model)
     @generate_ns.response(400, "Bad Request", error_model)
+    @generate_ns.response(401, "Unauthorized", error_model)
     @generate_ns.response(500, "Internal Server Error", error_model)
     @simple_trace("generate_structured_dungeon")
+    @require_auth
     def post(self):
         """Generate a structured dungeon based on user guidelines."""
         try:
@@ -402,8 +406,10 @@ class GenerateStructuredDungeon(Resource):
 class GeneratorInfo(Resource):
     @generate_ns.doc("get_generator_info")
     @generate_ns.response(200, "Success", generator_info_model)
+    @generate_ns.response(401, "Unauthorized", error_model)
     @generate_ns.response(500, "Internal Server Error", error_model)
     @simple_trace("get_generator_info")
+    @require_auth
     def get(self):
         """Get information about the dungeon generator."""
         try:
@@ -425,6 +431,7 @@ class GeneratorInfo(Resource):
 
 @generate_bp.route("/info", methods=["GET"])
 @simple_trace("get_generator_info")
+@require_auth
 def get_generator_info_legacy():
     """Get information about the dungeon generator (legacy endpoint)."""
     try:

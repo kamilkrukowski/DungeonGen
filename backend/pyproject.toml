@@ -22,6 +22,8 @@ dependencies = [
     "json-repair>=0.25.0",
     "scipy>=1.16.1",
     "networkx>=3.5",
+    "pyjwt>=2.8.0",
+    "bcrypt>=4.0.1",
 ]
 requires-python = ">=3.11"
 

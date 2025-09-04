@@ -41,6 +41,7 @@ import DungeonGrid from './components/DungeonGrid';
 import RoomContentPanel from './components/RoomContentPanel';
 import ErrorBanner from './components/ErrorBanner';
 import { parseDungeonData } from './models/DungeonModels';
+import { AuthProvider, AuthGuard, LogoutButton, useAuthenticatedFetch } from './auth';
 
 // Create a custom theme with dungeon-inspired colors
 const theme = createTheme({
@@ -426,6 +427,7 @@ function DungeonGenerator() {
   const [selectedRoomId, setSelectedRoomId] = useState(null);
   const [showGrid, setShowGrid] = useState(true); // Enable grid by default
   const [settingsExpanded, setSettingsExpanded] = useState(true);
+  const authenticatedFetch = useAuthenticatedFetch();
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -661,11 +663,8 @@ function DungeonGenerator() {
     setSelectedRoomId(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/generate/dungeon`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-        },
         body: JSON.stringify({
           guidelines: finalMessage,
           options: {
@@ -785,6 +784,7 @@ function DungeonGenerator() {
           >
             <SettingsIcon />
           </IconButton>
+          <LogoutButton />
         </Box>
       </Box>
 
@@ -869,55 +869,59 @@ function App() {
           }
         `}
       </style>
-      <Box sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        width: '100%',
-        maxWidth: '1400px'
-      }}>
-        {/* Simple Header */}
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(255,255,255,0.95)',
-          backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid #e0e0e0',
-          width: '100%'
-        }}>
+      <AuthProvider>
+        <AuthGuard>
           <Box sx={{
-            width: '100%',
-            maxWidth: '1400px',
-            p: 2
-          }}>
-            <Typography variant="h6" component="div" sx={{
-              color: 'primary.main',
-              fontWeight: 700,
-              textAlign: 'center'
-            }}>
-              DungeonGen
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Main Dungeon Generator Interface */}
-        <Box sx={{
-          flexGrow: 1,
-          p: 3,
-          display: 'flex',
-          justifyContent: 'center',
-          width: '100%'
-        }}>
-          <Box sx={{
-            height: '100%',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             width: '100%',
             maxWidth: '1400px'
           }}>
-            <DungeonGenerator />
+            {/* Simple Header */}
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(10px)',
+              borderBottom: '1px solid #e0e0e0',
+              width: '100%'
+            }}>
+              <Box sx={{
+                width: '100%',
+                maxWidth: '1400px',
+                p: 2
+              }}>
+                <Typography variant="h6" component="div" sx={{
+                  color: 'primary.main',
+                  fontWeight: 700,
+                  textAlign: 'center'
+                }}>
+                  DungeonGen
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Main Dungeon Generator Interface */}
+            <Box sx={{
+              flexGrow: 1,
+              p: 3,
+              display: 'flex',
+              justifyContent: 'center',
+              width: '100%'
+            }}>
+              <Box sx={{
+                height: '100%',
+                width: '100%',
+                maxWidth: '1400px'
+              }}>
+                <DungeonGenerator />
+              </Box>
+            </Box>
           </Box>
-        </Box>
-      </Box>
+        </AuthGuard>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

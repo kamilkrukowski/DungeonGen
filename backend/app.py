@@ -8,6 +8,8 @@ from flask_cors import CORS
 from flask_restx import Resource
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
+from api.auth.router import auth_bp, auth_ns
+
 # Import API documentation
 from api.docs import create_api_docs
 
@@ -102,9 +104,11 @@ api, models = create_api_docs(app)
 
 # Register blueprints
 app.register_blueprint(generate_bp)
+app.register_blueprint(auth_bp)
 
 # Register namespaces
 api.add_namespace(generate_ns, path="/api/generate")
+api.add_namespace(auth_ns, path="/api/auth")
 
 # Create namespaces for better organization
 health_ns = api.namespace("health", description="Health check operations")
@@ -178,6 +182,7 @@ class Home(Resource):
             "status": "running",
             "version": "1.0.0",
             "endpoints": {
+                "auth": "/api/auth/login",
                 "generate": "/api/generate/dungeon",
                 "generate_info": "/api/generate/info",
                 "health": "/api/health",
