@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -10,15 +10,64 @@ import {
   CircularProgress,
   Container,
   Paper,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
-import { Lock as LockIcon, Castle as CastleIcon } from '@mui/icons-material';
+import { Lock as LockIcon, Castle as CastleIcon, Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../AuthContext';
 
 const LoginPage = () => {
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState(() => {
+    // Initialize error state from localStorage to persist across remounts
+    return localStorage.getItem('loginError') || '';
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
+  const errorRef = useRef('');
+  const isInitialMount = useRef(true);
+
+  // Effect to manage error state persistence
+  useEffect(() => {
+    errorRef.current = error;
+
+    // Don't remove error from localStorage on initial mount if it's empty
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    // Only store error in localStorage if it's not already there
+    if (error) {
+      const storedError = localStorage.getItem('loginError');
+      if (storedError !== error) {
+        localStorage.setItem('loginError', error);
+      }
+    } else {
+      // Only remove from localStorage if we're not in the middle of a login attempt
+      if (!isSubmitting) {
+        localStorage.removeItem('loginError');
+      }
+    }
+  }, [error, isSubmitting]);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      // Clear error from localStorage when component unmounts (e.g., successful login)
+      localStorage.removeItem('loginError');
+    };
+  }, []);
+
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+    // Don't clear error automatically - let user see it until they submit again
+  };
+
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,12 +79,19 @@ const LoginPage = () => {
 
     setIsSubmitting(true);
     setError('');
+    localStorage.removeItem('loginError');
 
     try {
       const result = await login(password);
 
       if (!result.success) {
-        setError(result.error || 'Login failed');
+        const errorMessage = result.error || 'Login failed';
+
+        // Store error in localStorage immediately
+        localStorage.setItem('loginError', errorMessage);
+
+        // Set error state
+        setError(errorMessage);
       }
       // If successful, the AuthContext will handle the state change
     } catch (err) {
@@ -86,23 +142,69 @@ const LoginPage = () => {
           {/* Login Form */}
           <CardContent sx={{ p: 4 }}>
             <form onSubmit={handleSubmit}>
+              {/* Hidden username field for accessibility */}
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                style={{ display: 'none' }}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
               <TextField
                 fullWidth
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 label="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 disabled={isSubmitting}
                 error={!!error}
+                autoComplete="new-password"
                 InputProps={{
                   startAdornment: <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={handleTogglePasswordVisibility}
+                        onMouseDown={(e) => e.preventDefault()}
+                        edge="end"
+                        disabled={isSubmitting}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
                 }}
                 sx={{ mb: 3 }}
                 autoFocus
               />
 
               {error && (
-                <Alert severity="error" sx={{ mb: 3 }}>
+                <Alert
+                  severity="error"
+                  sx={{
+                    mb: 3,
+                    borderRadius: 2,
+                    boxShadow: 3,
+                    border: '2px solid',
+                    borderColor: 'error.main',
+                    backgroundColor: 'error.light',
+                    animation: 'shake 0.5s ease-in-out',
+                    '& .MuiAlert-icon': {
+                      fontSize: '1.5rem'
+                    },
+                    '& .MuiAlert-message': {
+                      fontSize: '1.1rem',
+                      fontWeight: 600
+                    },
+                    '@keyframes shake': {
+                      '0%, 100%': { transform: 'translateX(0)' },
+                      '25%': { transform: 'translateX(-5px)' },
+                      '75%': { transform: 'translateX(5px)' }
+                    }
+                  }}
+                >
                   {error}
                 </Alert>
               )}

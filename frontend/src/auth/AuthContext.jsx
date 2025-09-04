@@ -46,8 +46,6 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (password) => {
     try {
-      setIsLoading(true);
-
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -69,8 +67,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Login error:', error);
       return { success: false, error: 'Network error. Please try again.' };
-    } finally {
-      setIsLoading(false);
     }
   };
 

@@ -2,6 +2,8 @@
 Authentication router for login and JWT token management.
 """
 
+import time
+
 from flask import Blueprint, request
 from flask_restx import Namespace, Resource, fields
 
@@ -123,6 +125,8 @@ class Login(Resource):
 
             # Authenticate user
             if not authenticate_admin(login_request.password):
+                # Add delay for failed login attempts to prevent brute force attacks
+                time.sleep(5)
                 return (
                     create_auth_error_response(
                         error="Invalid password",
