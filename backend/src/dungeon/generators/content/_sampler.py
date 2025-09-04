@@ -2,6 +2,7 @@
 Room sampling utilities for dimensions and content flags.
 """
 
+import math
 import random
 
 from models.dungeon import DungeonGuidelines, DungeonLayout, Room
@@ -130,28 +131,58 @@ class RoomSampler:
         if not layout.rooms or not entrance_room:
             return None
 
-        # Strategy 1: Farthest from entrance
-        if entrance_room.center:
-            rooms_by_distance = sorted(
-                layout.rooms,
-                key=lambda r: (
-                    (
-                        (r.center.x - entrance_room.center.x) ** 2
-                        + (r.center.y - entrance_room.center.y) ** 2
-                    )
-                    ** 0.5
-                    if r.center
-                    else 0
-                ),
-                reverse=True,
-            )
-            return rooms_by_distance[0]
+        # Filter out small rooms using logarithm cutoff
+        # Small/tiny rooms typically have area <= 20, so log(20) ≈ 3.0
+        min_log_area = math.log(20)  # Cutoff for small rooms
+        eligible_rooms = [
+            room
+            for room in layout.rooms
+            if math.log(room.width * room.height) >= min_log_area
+        ]
 
-        # Strategy 2: Largest room
-        rooms_by_size = sorted(
-            layout.rooms, key=lambda r: r.width * r.height, reverse=True
-        )
-        return rooms_by_size[0]
+        if not eligible_rooms:
+            # Fallback: if no medium+ rooms, use the largest available room
+            eligible_rooms = layout.rooms
+
+        # Calculate scores combining distance and size preference
+        scored_rooms = []
+        for room in eligible_rooms:
+            score = self._calculate_boss_room_score(room, entrance_room)
+            scored_rooms.append((score, room))
+
+        # Sort by score (higher is better) and return the best room
+        scored_rooms.sort(key=lambda x: x[0], reverse=True)
+        return scored_rooms[0][1] if scored_rooms else None
+
+    def _calculate_boss_room_score(self, room: Room, entrance_room: Room) -> float:
+        """Calculate a score for boss room suitability."""
+        score = 0.0
+
+        # Distance component (0-1, higher is better for farther rooms)
+        if entrance_room.center and room.center:
+            # Calculate distance from entrance
+            distance = (
+                (room.center.x - entrance_room.center.x) ** 2
+                + (room.center.y - entrance_room.center.y) ** 2
+            ) ** 0.5
+
+            # Normalize distance (assume max reasonable distance is 50 units)
+            distance_score = min(distance / 50.0, 1.0)
+            score += distance_score * 0.6  # 60% weight for distance
+
+        # Size component using logarithm of area (0-1, higher is better for larger rooms)
+        room_area = room.width * room.height
+        log_area = math.log(room_area)
+
+        # Normalize log area: min_log_area (≈3.0) to max reasonable log area (≈5.0 for area 144)
+        min_log_area = math.log(20)  # Small room cutoff
+        max_log_area = math.log(144)  # Huge room reference
+        size_score = min((log_area - min_log_area) / (max_log_area - min_log_area), 1.0)
+        size_score = max(size_score, 0.0)  # Ensure non-negative
+
+        score += size_score * 0.4  # 40% weight for size
+
+        return score
 
     def _sample_room_content_flags(
         self, room: Room, guidelines: DungeonGuidelines
