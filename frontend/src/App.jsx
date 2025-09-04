@@ -268,7 +268,8 @@ function DungeonSidebar({
           flexGrow: 1,
           backgroundColor: 'white',
           borderLeft: '1px solid #e0e0e0',
-          borderTop: '1px solid #e0e0e0'
+          borderTop: '1px solid #e0e0e0',
+          overflow: 'auto'
         }}>
           <Typography variant="h6" sx={{ mb: 3, color: 'primary.main' }}>
             Generation Parameters
@@ -295,31 +296,6 @@ function DungeonSidebar({
             />
           </Box>
 
-          {/* Layout Type */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
-              Layout Type
-            </Typography>
-            <Tooltip title="Poisson Disc layout creates natural-looking room distributions with optimal spacing" placement="top">
-              <FormControl fullWidth size="small">
-                <Select
-                  value={settings.layoutType}
-                  onChange={(e) => onSettingsChange('layoutType', e.target.value)}
-                  displayEmpty
-                  disabled
-                  sx={{
-                    backgroundColor: '#f8f9fa',
-                    '& .MuiSelect-select': { color: '#666' }
-                  }}
-                >
-                  <MenuItem value="poisson_disc">Poisson Disc</MenuItem>
-                </Select>
-              </FormControl>
-            </Tooltip>
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-              Hover for description
-            </Typography>
-          </Box>
 
           {/* Room Content Generation Settings */}
           <Box sx={{ mb: 3, mt: 4 }}>
@@ -416,9 +392,6 @@ function DungeonSidebar({
               Rooms: {settings.roomCount}
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Layout: Poisson Disc
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               Traps: {Math.round(settings.percentageRoomsTrapped * 100)}%
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -452,7 +425,7 @@ function DungeonGenerator() {
   const [parsedDungeonData, setParsedDungeonData] = useState(null);
   const [selectedRoomId, setSelectedRoomId] = useState(null);
   const [showGrid, setShowGrid] = useState(true); // Enable grid by default
-  const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(true);
 
   // Settings state
   const [settings, setSettings] = useState({
