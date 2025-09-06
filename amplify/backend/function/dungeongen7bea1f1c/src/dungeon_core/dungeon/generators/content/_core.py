@@ -42,9 +42,16 @@ class LLMContentGenerator(BaseContentGenerator):
         self.content_allocator = ContentAllocator()
 
         if self.groq_api_key:
+            # Get model name from environment variable - required
+            model_name = os.environ.get("GROQ_MODEL")
+            if not model_name:
+                raise ValueError(
+                    "GROQ_MODEL environment variable is required but not set"
+                )
+
             self.chat_model = ChatGroq(
                 groq_api_key=self.groq_api_key,
-                model_name="meta-llama/llama-4-scout-17b-16e-instruct",
+                model_name=model_name,
                 temperature=0.7,
             )
             self.content_chain = RoomContentGenerationChain(llm=self.chat_model)
