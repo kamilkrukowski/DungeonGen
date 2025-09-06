@@ -78,9 +78,9 @@
             "Arn"
           ]
         },
-        "Runtime": "python3.11",
+        "Runtime": "python3.10",
         "Layers": [],
-        "Timeout": 25
+        "Timeout": 120
       }
     },
     "LambdaExecutionRole": {

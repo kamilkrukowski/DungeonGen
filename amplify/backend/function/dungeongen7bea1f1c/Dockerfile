@@ -25,6 +25,9 @@ RUN if [ -f Pipfile.lock ]; then \
         pipenv install --system --skip-lock; \
     fi
 
+# Debug: Check if numpy was installed
+RUN python -c "import numpy; print(f'NumPy version: {numpy.__version__}')" || echo "NumPy not available"
+
 # Copy the source code
 COPY src/ .
 
